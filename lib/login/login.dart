@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../pages/main_pages.dart';
+import '../pages/main_page.dart';
+import '../services/login_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,6 +13,61 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
 
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    checkLoginStatus();
+  }
+
+  void handleLogin() async {
+    final auth = AuthService();
+    final result = await auth.login(
+      emailController.text.trim(),
+      passwordController.text.trim(),
+    );
+
+    if (result['success']) {
+      final user = result['user'];
+      print('Login berhasil! Selamat datang, ${user['nama']}');
+
+      // Navigasi ke MainPage
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainPage()),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Login Gagal'),
+              content: Text(result['message']),
+              actions: [
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+      );
+    }
+  }
+
+  void checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getString('user_id') ?? 'not-login';
+    print(isLoggedIn);
+    if (isLoggedIn != 'not-login') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,24 +78,29 @@ class _LoginPageState extends State<LoginPage> {
             padding: const EdgeInsets.all(25.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                const SizedBox(height: 10), // jarak dari status bar
+                const SizedBox(height: 10),
 
                 // Logo
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   width: double.infinity,
                   height: 300,
-                  child: Image.asset(
-                    'assets/logo.png',
-                    fit: BoxFit.contain,
+                  child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                ),
+
+                const Text(
+                  'MERCHANT APP',
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Sen',
                   ),
                 ),
 
-                const SizedBox(height: 50),
+                const SizedBox(height: 30),
 
-                // Container putih untuk form login
+                // Login Form Container
                 Container(
                   padding: const EdgeInsets.all(25),
                   decoration: BoxDecoration(
@@ -57,6 +119,8 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       // Email Field
                       TextField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(fontFamily: 'Sen'),
                         decoration: InputDecoration(
                           labelText: 'Email',
@@ -82,6 +146,7 @@ class _LoginPageState extends State<LoginPage> {
 
                       // Password Field
                       TextField(
+                        controller: passwordController,
                         obscureText: _obscureText,
                         style: const TextStyle(fontFamily: 'Sen'),
                         decoration: InputDecoration(
@@ -104,7 +169,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureText ? Icons.visibility_off : Icons.visibility,
+                              _obscureText
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.grey,
                             ),
                             onPressed: () {
@@ -121,12 +188,7 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const MainPage()),
-                            );
-                          },
+                          onPressed: handleLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFF7622),
                             foregroundColor: Colors.white,

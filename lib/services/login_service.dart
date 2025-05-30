@@ -17,7 +17,7 @@ class AuthService {
       print("response success");
       final data = jsonDecode(response.body);
 
-      if (data['user']['role'] != 'buyer') {
+      if (data['user']['role'] != 'customer') {
         return {
           'success': false,
           'message':

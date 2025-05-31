@@ -241,12 +241,13 @@ class _MainPageState extends State<MainPage> {
                         mainAxisSpacing: 12,
                         childAspectRatio: 0.65,
                         physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildKantinCard('KANTIN\nGEDUNG W'),
-                          _buildKantinCard('KANTIN\nGEDUNG P'),
-                          _buildKantinCard('KANTIN\nGEDUNG T'),
-                          _buildKantinCard('KANTIN\nGEDUNG Q'),
-                        ],
+                        children:
+                            _locations.map((loc) {
+                              return _buildKantinCard(
+                                loc.id,
+                                'KANTIN\n${loc.locationName}',
+                              );
+                            }).toList(),
                       ),
                     ),
                   ],
@@ -290,7 +291,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildKantinCard(String title) {
+  Widget _buildKantinCard(int id, String title) {
     final gedung = title.split('\n').last.split(' ').last;
 
     return GestureDetector(

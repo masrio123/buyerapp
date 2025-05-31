@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'activity_pages.dart';
+import '../models/customer.dart';
+import '../services/customer_service.dart';
 import 'main_pages.dart';
-
-void main() {
-  runApp(const AccountPages());
-}
+import 'activity_pages.dart';
 
 class AccountPages extends StatelessWidget {
   const AccountPages({super.key});
@@ -27,15 +25,38 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String _nomorRekening = "2160842219";
-  String _atasNama = "REYHAN RENJIRO";
-  String _selectedBank = "BRI";
+  Customer? _customer;
+  bool _isLoading = true;
   bool _isEditing = false;
+
+  String _nomorRekening = "";
+  String _atasNama = "";
+  String _selectedBank = "";
 
   final TextEditingController _rekeningController = TextEditingController();
   final TextEditingController _namaController = TextEditingController();
-
   final List<String> _bankList = ["BRI", "Mandiri", "BCA"];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCustomer();
+  }
+
+  Future<void> fetchCustomer() async {
+    try {
+      final customer = await CustomerService.fetchCustomerDetail();
+      setState(() {
+        _customer = customer;
+        _nomorRekening = customer.bankUser.accountNumber;
+        _atasNama = customer.bankUser.username;
+        _selectedBank = CustomerService.getBankName(customer.bankUser.id);
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
 
   void _toggleEdit() {
     setState(() {
@@ -55,6 +76,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     double screenWidth = MediaQuery.of(context).size.width;
     double fontSizeTitle = screenWidth * 0.07;
     double fontSizeSubTitle = screenWidth * 0.05;
@@ -75,7 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Reyhan Renjiro',
+                _customer!.customerName,
                 style: TextStyle(
                   fontSize: fontSizeTitle,
                   fontWeight: FontWeight.w600,
@@ -89,7 +114,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              const ProfileItem(label: "Jurusan", value: "Informatika"),
+              ProfileItem(
+                label: "Jurusan",
+                value: _customer!.department.departmentName,
+              ),
               const ProfileItem(label: "Angkatan", value: "2021"),
               const ProfileItem(label: "NRP", value: "c14210106"),
               const SizedBox(height: 10),
@@ -112,19 +140,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           fontWeight: FontWeight.bold,
                           fontSize: fontSizeText,
                         ),
-                        decoration: InputDecoration(
-                          hintText: "Nomor Rekening",
-                          filled: true,
-                          fillColor: const Color(0xFFF1F1F1),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
+                        decoration: inputDecoration("Nomor Rekening"),
                       ),
                       const SizedBox(height: 6),
                       TextField(
@@ -134,47 +150,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           fontWeight: FontWeight.bold,
                           fontSize: fontSizeText,
                         ),
-                        decoration: InputDecoration(
-                          hintText: "Atas Nama",
-                          filled: true,
-                          fillColor: const Color(0xFFF1F1F1),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
+                        decoration: inputDecoration("Atas Nama"),
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         value: _selectedBank,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: const Color(0xFFF1F1F1),
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide.none,
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
                         items:
-                            _bankList.map((bank) {
-                              return DropdownMenuItem(
-                                value: bank,
-                                child: Text(bank),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedBank = value!;
-                          });
-                        },
+                            _bankList
+                                .map(
+                                  (bank) => DropdownMenuItem(
+                                    value: bank,
+                                    child: Text(bank),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (value) => setState(() => _selectedBank = value!),
+                        decoration: inputDecoration("Pilih Bank"),
                       ),
                       const SizedBox(height: 16),
                       Align(
@@ -234,15 +226,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       ElevatedButton(
+                        onPressed: _toggleEdit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFF7622),
                         ),
-                        onPressed: _toggleEdit,
                         child: const Text(
                           "Ganti",
-                          style: TextStyle(
-                              color: Colors.white,
-                          fontSize: 18),
+                          style: TextStyle(color: Colors.white, fontSize: 18),
                         ),
                       ),
                     ],
@@ -255,10 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
         currentIndex: 2,
         onTap: (index) {
           if (index == 0) {
-            Navigator.push(
-              context,
-              HorizontalSlideRoute(page: const MainPage()),
-            );
+            Navigator.push(context, HorizontalSlideRoute(page: MainPage()));
           } else if (index == 1) {
             Navigator.push(
               context,
@@ -282,6 +269,19 @@ class _ProfilePageState extends State<ProfilePage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
         ],
       ),
+    );
+  }
+
+  InputDecoration inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: const Color(0xFFF1F1F1),
+      border: OutlineInputBorder(
+        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }

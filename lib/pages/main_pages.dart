@@ -6,61 +6,61 @@ import 'package:petraporter_buyer/kantin/kantin_gedung_t.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_w.dart';
 import '/login/login.dart';
 import 'account_pages.dart';
+import '../services/home_service.dart';
+import '../models/tenant_location.dart';
 
-// Custom Route untuk Kantin (Slide dari bawah)
 class SlidePageRoute extends PageRouteBuilder {
   final Widget page;
 
   SlidePageRoute({required this.page})
-      : super(
-    transitionDuration: const Duration(milliseconds: 400),
-    reverseTransitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (context, animation, secondaryAnimation) => page,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      const begin = Offset(0.0, 1.0);
-      const end = Offset.zero;
-      const curve = Curves.easeInOutQuart;
+    : super(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutQuart;
 
-      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-      var offsetAnimation = animation.drive(tween);
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
 
-      return SlideTransition(
-        position: offsetAnimation,
-        child: FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
+          return SlideTransition(
+            position: offsetAnimation,
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
       );
-    },
-  );
 }
 
-// Custom Route untuk Activity/Account (Slide horizontal)
 class HorizontalSlideRoute extends PageRouteBuilder {
   final Widget page;
 
   HorizontalSlideRoute({required this.page})
-      : super(
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 250),
-    pageBuilder: (context, animation, secondaryAnimation) => page,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      const begin = Offset(1.0, 0.0);
-      const end = Offset.zero;
-      const curve = Curves.easeInOutQuad;
+    : super(
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutQuad;
 
-      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-      var offsetAnimation = animation.drive(tween);
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
 
-      return SlideTransition(
-        position: offsetAnimation,
-        child: FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
+          return SlideTransition(
+            position: offsetAnimation,
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
       );
-    },
-  );
 }
 
 class MainPage extends StatefulWidget {
@@ -71,70 +71,73 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  String _selectedLocation = 'Ruang Dosen Q.325';
-  final List<String> _locations = [
-    'Ruang Dosen Q.325',
-    'Gedung W Lantai 3',
-    'Gedung P Lantai 1',
-    'Gedung T Lantai 2',
-  ];
+  int? _selectedLocationId;
+  List<TenantLocation> _locations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadTenantLocations();
+  }
+
+  Future<void> loadTenantLocations() async {
+    try {
+      final locations = await HomeService.fetchTenantLocations();
+      setState(() {
+        _locations = locations;
+        _selectedLocationId = locations.isNotEmpty ? locations.first.id : null;
+      });
+    } catch (e) {
+      debugPrint('Error fetching locations: $e');
+    }
+  }
+
+  String get _selectedLocation {
+    final loc = _locations.firstWhere(
+      (l) => l.id == _selectedLocationId,
+      orElse: () => TenantLocation(id: 0, locationName: 'Belum dipilih'),
+    );
+    return loc.locationName;
+  }
 
   void _logout(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
+      (route) => false,
     );
   }
 
-  Future<void> _showLocationPicker() async {
-    String? tempLocation = _selectedLocation; // Untuk sementara pilihan
+  void _showLocationPicker(BuildContext ctx) {
+    showDialog(
+      context: ctx,
+      builder: (_) {
+        int? tempLocationId = _selectedLocationId;
 
-    await showDialog<String>(
-      context: context,
-      builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
-            'PILIH LOKASI',
-            style: TextStyle(
-              fontFamily: 'Sen',
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: _locations.map((loc) {
-                return RadioListTile<String>(
-                  title: Text(
-                    loc,
-                    style: const TextStyle(
-                      fontFamily: 'Sen',
-                      fontSize: 16,
+          title: const Text('Pilih Lokasi'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children:
+                _locations.map((loc) {
+                  return RadioListTile<int>(
+                    title: Text(
+                      loc.locationName,
+                      style: const TextStyle(fontFamily: 'Sen', fontSize: 16),
                     ),
-                  ),
-                  value: loc,
-                  groupValue: tempLocation,
-                  onChanged: (value) {
-                    setState(() {
-                      tempLocation = value!;
-                    });
-                    Navigator.of(ctx).pop(value); // Langsung close dan kirim value
-                  },
-                );
-              }).toList(),
-            ),
+                    value: loc.id,
+                    groupValue: tempLocationId,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedLocationId = value!;
+                      });
+                      Navigator.of(ctx).pop(value);
+                    },
+                  );
+                }).toList(),
           ),
         );
       },
-    ).then((newLocation) {
-      if (newLocation != null && newLocation != _selectedLocation) {
-        setState(() {
-          _selectedLocation = newLocation;
-        });
-      }
-    });
+    );
   }
 
   @override
@@ -164,14 +167,21 @@ class _MainPageState extends State<MainPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on, color: Colors.red, size: 50),
+                        const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 50,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -187,7 +197,7 @@ class _MainPageState extends State<MainPage> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: _showLocationPicker,
+                                onTap: () => _showLocationPicker(context),
                                 child: Row(
                                   children: [
                                     Text(
@@ -286,58 +296,46 @@ class _MainPageState extends State<MainPage> {
     return GestureDetector(
       onTap: () {
         switch (gedung) {
-
           case 'W':
             Navigator.push(
               context,
               SlidePageRoute(
                 page: KantinGedungW(
-                  cart: CartModel(),                // objek CartModel-mu
-                  onCartUpdated: () {
-                    setState((){});          // atau callback-mu
-                  },
+                  cart: CartModel(),
+                  onCartUpdated: () => setState(() {}),
                 ),
               ),
             );
             break;
-
           case 'P':
             Navigator.push(
               context,
               SlidePageRoute(
                 page: KantinGedungP(
-                  cart: CartModel(),                // objek CartModel-mu
-                  onCartUpdated: () {
-                    setState((){});          // atau callback-mu
-                  },
+                  cart: CartModel(),
+                  onCartUpdated: () => setState(() {}),
                 ),
               ),
             );
             break;
-
           case 'T':
             Navigator.push(
               context,
               SlidePageRoute(
                 page: KantinGedungT(
-                  cart: CartModel(),                // objek CartModel-mu
-                  onCartUpdated: () {
-                    setState((){});          // atau callback-mu
-                  },
+                  cart: CartModel(),
+                  onCartUpdated: () => setState(() {}),
                 ),
               ),
             );
             break;
-
           case 'Q':
             Navigator.push(
               context,
               SlidePageRoute(
                 page: KantinGedungQ(
-                  cart: CartModel(),                // objek CartModel-mu
-                  onCartUpdated: () {
-                    setState((){});          // atau callback-mu
-                  },
+                  cart: CartModel(),
+                  onCartUpdated: () => setState(() {}),
                 ),
               ),
             );

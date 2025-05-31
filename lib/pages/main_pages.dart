@@ -296,52 +296,17 @@ class _MainPageState extends State<MainPage> {
 
     return GestureDetector(
       onTap: () {
-        switch (gedung) {
-          case 'W':
-            Navigator.push(
-              context,
-              SlidePageRoute(
-                page: KantinGedungW(
-                  cart: CartModel(),
-                  onCartUpdated: () => setState(() {}),
-                ),
-              ),
-            );
-            break;
-          case 'P':
-            Navigator.push(
-              context,
-              SlidePageRoute(
-                page: KantinGedungP(
-                  cart: CartModel(),
-                  onCartUpdated: () => setState(() {}),
-                ),
-              ),
-            );
-            break;
-          case 'T':
-            Navigator.push(
-              context,
-              SlidePageRoute(
-                page: KantinGedungT(
-                  cart: CartModel(),
-                  onCartUpdated: () => setState(() {}),
-                ),
-              ),
-            );
-            break;
-          case 'Q':
-            Navigator.push(
-              context,
-              SlidePageRoute(
-                page: KantinGedungQ(
-                  cart: CartModel(),
-                  onCartUpdated: () => setState(() {}),
-                ),
-              ),
-            );
-            break;
-        }
+        Navigator.push(
+          context,
+          SlidePageRoute(
+            page: KantinGedungW(
+              vendorId: id,
+              vendorName: title,
+              cart: CartModel(),
+              onCartUpdated: () => setState(() {}),
+            ),
+          ),
+        );
       },
       child: Container(
         decoration: BoxDecoration(

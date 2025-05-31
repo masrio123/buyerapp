@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:petraporter_buyer/pages/activity_pages.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_p.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_q.dart';
@@ -100,7 +101,10 @@ class _MainPageState extends State<MainPage> {
     return loc.locationName;
   }
 
-  void _logout(BuildContext context) {
+  void _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
       (route) => false,

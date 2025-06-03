@@ -7,7 +7,7 @@ class MyCartPage extends StatefulWidget {
   final VoidCallback onClear;
 
   const MyCartPage({Key? key, required this.cart, required this.onClear})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<MyCartPage> createState() => _MyCartPageState();
@@ -30,6 +30,7 @@ class _MyCartPageState extends State<MyCartPage> {
 
     for (var vendor in widget.cart.vendors) {
       final items = widget.cart.itemsOf(vendor);
+      print(items);
       subtotal += items.fold<int>(0, (sum, it) => sum + (it['price'] as int));
       totalShipping += _calculateShippingCost(items.length);
     }
@@ -43,153 +44,166 @@ class _MyCartPageState extends State<MyCartPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: widget.cart.vendors.isEmpty
-          ? const Center(
-        child: Text(
-          'KERANJANG KOSONG',
-          style: TextStyle(fontFamily: 'Sen'),
-        ),
-      )
-          : Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 45, left: 20, right: 20),
-            child: Row(
-              children: [
-                const SizedBox(width: 25),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Icon(Icons.arrow_back, color: Colors.black),
+      body:
+          widget.cart.vendors.isEmpty
+              ? const Center(
+                child: Text(
+                  'KERANJANG KOSONG',
+                  style: TextStyle(fontFamily: 'Sen'),
                 ),
-                const SizedBox(width: 30),
-                const Text(
-                  'My Cart',
-                  style: TextStyle(
-                    fontFamily: 'Sen',
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                ...widget.cart.vendors.map((vendor) {
-                  final items = widget.cart.itemsOf(vendor);
-
-                  return ExpansionTile(
-                    title: Text(
-                      vendor,
-                      style: const TextStyle(
-                        fontFamily: 'Sen',
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+              )
+              : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 45,
+                      left: 20,
+                      right: 20,
                     ),
-                    children: List.generate(
-                      items.length,
-                          (index) => ListTile(
-                        title: Text(
-                          items[index]['name'],
-                          style: const TextStyle(
-                            fontFamily: 'Sen',
-                            fontSize: 15,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 25),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
                           ),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Rp${(items[index]['price'] as int) ~/ 1000},000',
+                        const SizedBox(width: 30),
+                        const Text(
+                          'My Cart',
+                          style: TextStyle(
+                            fontFamily: 'Sen',
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        ...widget.cart.vendors.map((vendor) {
+                          final items = widget.cart.itemsOf(vendor);
+
+                          return ExpansionTile(
+                            title: Text(
+                              vendor,
                               style: const TextStyle(
                                 fontFamily: 'Sen',
-                                fontSize: 15,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
+                            children: List.generate(
+                              items.length,
+                              (index) => ListTile(
+                                title: Text(
+                                  items[index]['name'],
+                                  style: const TextStyle(
+                                    fontFamily: 'Sen',
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Rp${(items[index]['price'] as int) ~/ 1000},000',
+                                      style: const TextStyle(
+                                        fontFamily: 'Sen',
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () {
+                                        widget.cart.removeItemByVendorAndIndex(
+                                          vendor,
+                                          index,
+                                        );
+                                        widget.onClear();
+                                        setState(() {});
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
-                              onPressed: () {
-                                widget.cart.removeItemByVendorAndIndex(
-                                    vendor, index);
-                                widget.onClear();
-                                setState(() {});
-                              },
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildSummaryRow('Subtotal', subtotal),
+                            const SizedBox(height: 8),
+                            _buildSummaryRow('Ongkos Kirim', totalShipping),
+                            const SizedBox(height: 12),
+                            const Divider(thickness: 1),
+                            const SizedBox(height: 12),
+                            _buildSummaryRow('Total', total, isBold: true),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => SearchingPorterPage(
+                                            subtotal: subtotal,
+                                            deliveryFee: totalShipping,
+                                            total: total,
+                                          ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF7622),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  'PLACE ORDER',
+                                  style: TextStyle(
+                                    fontFamily: 'Sen',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: Column(
-                  children: [
-                    _buildSummaryRow('Subtotal', subtotal),
-                    const SizedBox(height: 8),
-                    _buildSummaryRow('Ongkos Kirim', totalShipping),
-                    const SizedBox(height: 12),
-                    const Divider(thickness: 1),
-                    const SizedBox(height: 12),
-                    _buildSummaryRow('Total', total, isBold: true),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SearchingPorterPage(
-                                subtotal: subtotal,
-                                deliveryFee: totalShipping,
-                                total: total,
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF7622),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'PLACE ORDER',
-                          style: TextStyle(
-                            fontFamily: 'Sen',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 

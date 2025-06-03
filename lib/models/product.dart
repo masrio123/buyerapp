@@ -1,11 +1,16 @@
 class Product {
+  final int id;
   final String name;
   final int price;
 
-  Product({required this.name, required this.price});
+  Product({required this.id, required this.name, required this.price});
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(name: json['name'], price: json['price']);
+    return Product(
+      id: json['id'], // Tambahkan parsing id
+      name: json['name'],
+      price: json['price'],
+    );
   }
 }
 

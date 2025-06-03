@@ -33,7 +33,11 @@ class ProductService {
         for (var category in tenant.categories) {
           kantinMenu[tenant.name]![category.name] =
               category.products.map((product) {
-                return {'name': product.name, 'price': product.price};
+                return {
+                  'id': product.id,
+                  'name': product.name,
+                  'price': product.price,
+                };
               }).toList();
         }
       }

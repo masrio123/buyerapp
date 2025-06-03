@@ -40,13 +40,51 @@ class _MyCartPageState extends State<MyCartPage> {
   }
 
   void _buatKeranjang() async {
+    int? cartId;
+
     try {
       final result = await CartService.createCart();
-      print('Pesan: ${result['message']}');
-      print('ID Keranjang: ${result['cart']['id']}');
+      cartId = result['cart']['id'];
+
+      print('✅ Keranjang berhasil dibuat: ID = $cartId');
     } catch (e) {
-      print('Gagal membuat keranjang: $e');
+      print('❌ Gagal membuat keranjang: $e');
+      _showErrorDialog('Gagal membuat keranjang: $e');
+      return; // berhenti jika gagal buat keranjang
     }
+
+    try {
+      for (var vendor in widget.cart.vendors) {
+        final items = widget.cart.itemsOf(vendor);
+
+        print("📦 Menambahkan item dari vendor $vendor: ${items.length} item");
+
+        for (var item in items) {
+          await CartService.addToCart(cartId!, item['id'], 1);
+          print("🛒 Ditambahkan: ${item['name']} (ID: ${item['id']})");
+        }
+      }
+    } catch (e) {
+      print('❌ Gagal menambahkan item ke keranjang: $e');
+      _showErrorDialog('Gagal menambahkan item ke keranjang: $e');
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override

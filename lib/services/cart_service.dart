@@ -47,7 +47,42 @@ class CartService {
       final data = jsonDecode(response.body);
       return {'message': data['message'], 'cart': data['cart']};
     } else {
-      throw Exception('Failed to create cart: ${response.body}');
+      throw Exception('${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> addToCart(
+    int cartId,
+    int productId,
+    int quantity,
+  ) async {
+    print("cart_id  : $cartId, product_id : $productId store to database");
+
+    final token = await getToken();
+
+    final response = await http.post(
+      Uri.parse('$baseURL/cart-items'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'cart_id': cartId,
+        'product_id': productId,
+        'quantity': quantity,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print("✅ Berhasil menambahkan produk ke keranjang");
+      return jsonDecode(response.body);
+    } else {
+      final errorMessage = jsonDecode(response.body);
+      print(
+        "❌ Gagal menambahkan produk: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
+      );
+      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
     }
   }
 }

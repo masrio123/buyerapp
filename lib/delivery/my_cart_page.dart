@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_p.dart';
+import '../services/cart_service.dart';
 
 class MyCartPage extends StatefulWidget {
   final CartModel cart;
@@ -36,6 +37,16 @@ class _MyCartPageState extends State<MyCartPage> {
     }
 
     total = subtotal + totalShipping;
+  }
+
+  void _buatKeranjang() async {
+    try {
+      final result = await CartService.createCart();
+      print('Pesan: ${result['message']}');
+      print('ID Keranjang: ${result['cart']['id']}');
+    } catch (e) {
+      print('Gagal membuat keranjang: $e');
+    }
   }
 
   @override
@@ -167,17 +178,18 @@ class _MyCartPageState extends State<MyCartPage> {
                               height: 48,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => SearchingPorterPage(
-                                            subtotal: subtotal,
-                                            deliveryFee: totalShipping,
-                                            total: total,
-                                          ),
-                                    ),
-                                  );
+                                  // Navigator.push(
+                                  //   context,
+                                  //   MaterialPageRoute(
+                                  //     builder:
+                                  //         (context) => SearchingPorterPage(
+                                  //           subtotal: subtotal,
+                                  //           deliveryFee: totalShipping,
+                                  //           total: total,
+                                  //         ),
+                                  //   ),
+                                  // );
+                                  _buatKeranjang();
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFFF7622),

@@ -1,0 +1,53 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../constant/constant.dart';
+
+class CartService {
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
+  static Future<String?> customerID() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('customer_id');
+  }
+
+  static Future<int?> getLocationId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('selected_location_id');
+  }
+
+  static Future<Map<String, dynamic>> createCart() async {
+    final token = await getToken();
+    final customer_id = await customerID();
+    final tenantLocationId = await getLocationId();
+
+    print('user_id : $customer_id dan location_id : $tenantLocationId');
+
+    if (token == null || customer_id == null) {
+      throw Exception('Token or user ID not found');
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseURL/cart'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'customer_id': int.parse(customer_id),
+        'tenant_location_id': tenantLocationId,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return {'message': data['message'], 'cart': data['cart']};
+    } else {
+      throw Exception('Failed to create cart: ${response.body}');
+    }
+  }
+}

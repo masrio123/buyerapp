@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/login/login.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 

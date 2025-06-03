@@ -38,7 +38,10 @@ class ActivityPages extends StatelessWidget {
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: Text('Activity', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: Text(
+            'Activity',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
@@ -51,10 +54,15 @@ class ActivityPages extends StatelessWidget {
             return Card(
               margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: ListTile(
                 leading: Icon(Icons.receipt_long, size: 36),
-                title: Text(order.date, style: TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  order.date,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -116,80 +124,136 @@ class ActivityPages extends StatelessWidget {
   void _showOrderDetail(BuildContext context, Order order) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-            minWidth: MediaQuery.of(context).size.width * 0.8,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Order Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  SizedBox(height: 12),
-                  Text("Date: ${order.date}\n"),
-                  for (final resto in order.items) ...[
-                    Text(resto.name, style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 6),
-                    for (final item in resto.items)
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+                minWidth: MediaQuery.of(context).size.width * 0.8,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Order Details",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text("Date: ${order.date}\n"),
+                      for (final resto in order.items) ...[
+                        Text(
+                          resto.name,
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 6),
+                        for (final item in resto.items)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text('${item.name} x${item.quantity}'),
+                              ),
+                              Text('Rp${item.price}'),
+                            ],
+                          ),
+                        if (resto.note != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              'Catatan: ${resto.note!}',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        Divider(),
+                      ],
+                      SizedBox(height: 10),
+                      Text(
+                        "TOTAL PAYMENT",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(child: Text('${item.name} x${item.quantity}')),
-                          Text('Rp${item.price}'),
+                          Text('Total Price'),
+                          Text('Rp${order.totalPrice()}'),
                         ],
                       ),
-                    if (resto.note != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text('Catatan: ${resto.note!}', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [Text('Delivery Fee'), Text('Rp6000')],
                       ),
-                    Divider(),
-                  ],
-                  SizedBox(height: 10),
-                  Text("TOTAL PAYMENT", style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [Text('Total Price'), Text('Rp${order.totalPrice()}')],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [Text('Delivery Fee'), Text('Rp6000')],
-                  ),
-                  Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Rp${order.totalPrice() + 6000}', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:  Color(0xFFFF7622),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      Divider(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'TOTAL',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Rp${order.totalPrice() + 6000}',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFFFF7622),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text('Close'),
                         ),
                       ),
-                      child: Text('Close'),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
     );
   }
+}
+
+class HorizontalSlideRoute extends PageRouteBuilder {
+  final Widget page;
+
+  HorizontalSlideRoute({required this.page})
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0); // Slide dari kanan
+          const end = Offset.zero;
+          const curve = Curves.ease;
+
+          final tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+      );
 }
 
 // Model
@@ -207,7 +271,9 @@ class Order {
   });
 
   int totalPrice() {
-    return items.expand((e) => e.items).fold(0, (sum, item) => sum + item.price);
+    return items
+        .expand((e) => e.items)
+        .fold(0, (sum, item) => sum + item.price);
   }
 }
 
@@ -216,11 +282,7 @@ class RestaurantOrder {
   final List<OrderItem> items;
   final String? note;
 
-  RestaurantOrder({
-    required this.name,
-    required this.items,
-    this.note,
-  });
+  RestaurantOrder({required this.name, required this.items, this.note});
 }
 
 class OrderItem {
@@ -228,9 +290,5 @@ class OrderItem {
   final int quantity;
   final int price;
 
-  OrderItem({
-    required this.name,
-    required this.quantity,
-    required this.price,
-  });
+  OrderItem({required this.name, required this.quantity, required this.price});
 }

@@ -350,7 +350,72 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
                                               ),
                                               leading: GestureDetector(
                                                 onTap: () async {
-                                                  // Tambahkan dialog tambah ke keranjang
+                                                  final confirm = await showDialog<
+                                                    bool
+                                                  >(
+                                                    context: context,
+                                                    builder:
+                                                        (_) => AlertDialog(
+                                                          title: const Text(
+                                                            'Tambah ke Keranjang?',
+                                                            style: TextStyle(
+                                                              fontFamily: 'Sen',
+                                                            ),
+                                                          ),
+                                                          content: Text(
+                                                            menu['name'],
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontFamily:
+                                                                      'Sen',
+                                                                  fontSize: 18,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed:
+                                                                  () =>
+                                                                      Navigator.pop(
+                                                                        context,
+                                                                        false,
+                                                                      ),
+                                                              child: const Text(
+                                                                'Batal',
+                                                                style: TextStyle(
+                                                                  fontFamily:
+                                                                      'Sen',
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed:
+                                                                  () =>
+                                                                      Navigator.pop(
+                                                                        context,
+                                                                        true,
+                                                                      ),
+                                                              child: const Text(
+                                                                'Ya',
+                                                                style: TextStyle(
+                                                                  fontFamily:
+                                                                      'Sen',
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                  );
+
+                                                  if (confirm == true) {
+                                                    widget.cart.addItem(
+                                                      widget.vendorName,
+                                                      menu,
+                                                    );
+                                                    widget.onCartUpdated();
+                                                  }
                                                 },
                                                 child: const Icon(
                                                   Icons.add_circle_outline,

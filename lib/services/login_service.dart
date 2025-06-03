@@ -33,8 +33,8 @@ class AuthService {
       await prefs.setString('user_name', data['user']['name']);
       await prefs.setString('user_email', data['user']['email']);
       await prefs.setString(
-        'buyer_id',
-        data['user']['buyer_id'].toString() ?? '',
+        'customer_id',
+        data['user']['customer_id'].toString() ?? '',
       );
 
       await prefs.setString('role', data['user']['role']);

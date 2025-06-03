@@ -74,6 +74,8 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int? _selectedLocationId;
   List<TenantLocation> _locations = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -82,6 +84,11 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> loadTenantLocations() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
       final locations = await HomeService.fetchTenantLocations();
       setState(() {
@@ -89,7 +96,11 @@ class _MainPageState extends State<MainPage> {
         _selectedLocationId = locations.isNotEmpty ? locations.first.id : null;
       });
     } catch (e) {
-      debugPrint('Error fetching locations: $e');
+      setState(() {
+        _errorMessage = 'Gagal mengambil lokasi. Coba lagi nanti.';
+      });
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -239,20 +250,31 @@ class _MainPageState extends State<MainPage> {
                     ),
                     const SizedBox(height: 20),
                     Expanded(
-                      child: GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.65,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children:
-                            _locations.map((loc) {
-                              return _buildKantinCard(
-                                loc.id,
-                                'KANTIN\n${loc.locationName}',
-                              );
-                            }).toList(),
-                      ),
+                      child:
+                          _isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : _errorMessage != null
+                              ? Center(child: Text(_errorMessage!))
+                              : _locations.isEmpty
+                              ? const Center(
+                                child: Text(
+                                  'Belum ada lokasi kantin tersedia.',
+                                ),
+                              )
+                              : GridView.count(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 0.65,
+                                physics: const NeverScrollableScrollPhysics(),
+                                children:
+                                    _locations.map((loc) {
+                                      return _buildKantinCard(
+                                        loc.id,
+                                        'KANTIN\n${loc.locationName}',
+                                      );
+                                    }).toList(),
+                              ),
                     ),
                   ],
                 ),
@@ -296,21 +318,20 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildKantinCard(int id, String title) {
-    final gedung = title.split('\n').last.split(' ').last;
+    final gedung = title.split('\n').last.trim().toUpperCase();
+
+    Widget page;
+
+    page = KantinGedungW(
+      vendorId: id,
+      vendorName: title,
+      cart: CartModel(),
+      onCartUpdated: () => setState(() {}),
+    );
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          SlidePageRoute(
-            page: KantinGedungW(
-              vendorId: id,
-              vendorName: title,
-              cart: CartModel(),
-              onCartUpdated: () => setState(() {}),
-            ),
-          ),
-        );
+        Navigator.push(context, SlidePageRoute(page: page));
       },
       child: Container(
         decoration: BoxDecoration(

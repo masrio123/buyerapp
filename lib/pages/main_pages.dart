@@ -77,6 +77,16 @@ class _MainPageState extends State<MainPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  Future<void> _saveSelectedLocationId(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selected_location_id', id);
+  }
+
+  Future<int?> _loadSavedLocationId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('selected_location_id');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -91,9 +101,15 @@ class _MainPageState extends State<MainPage> {
 
     try {
       final locations = await HomeService.fetchTenantLocations();
+      final savedLocationId = await _loadSavedLocationId();
+
       setState(() {
         _locations = locations;
-        _selectedLocationId = locations.isNotEmpty ? locations.first.id : null;
+        if (locations.isNotEmpty) {
+          // Validasi apakah savedLocationId ada di daftar lokasi
+          final exists = locations.any((l) => l.id == savedLocationId);
+          _selectedLocationId = exists ? savedLocationId : locations.first.id;
+        }
       });
     } catch (e) {
       setState(() {
@@ -145,6 +161,7 @@ class _MainPageState extends State<MainPage> {
                       setState(() {
                         _selectedLocationId = value!;
                       });
+                      _saveSelectedLocationId(value!); // ⬅️ Tambahkan ini
                       Navigator.of(ctx).pop(value);
                     },
                   );

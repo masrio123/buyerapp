@@ -44,6 +44,9 @@ class _KantinGedungWState extends State<KantinGedungW> {
     } catch (e) {
       print('Error fetching tenants: $e');
       setState(() => _isLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal memuat vendor: $e')));
     }
   }
 
@@ -58,7 +61,6 @@ class _KantinGedungWState extends State<KantinGedungW> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 children: [
                   GestureDetector(
@@ -80,9 +82,21 @@ class _KantinGedungWState extends State<KantinGedungW> {
               Container(height: 4, width: 350, color: const Color(0xFFFF7622)),
               const SizedBox(height: 30),
               if (_isLoading)
-                const Center(child: CircularProgressIndicator())
+                const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
               else if (_vendors.isEmpty)
-                const Center(child: Text('Tidak ada vendor ditemukan'))
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'Belum ada tenant yang tersedia saat ini.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                )
               else
                 Expanded(
                   child: ListView.separated(
@@ -138,7 +152,6 @@ class _KantinGedungWState extends State<KantinGedungW> {
           ),
         ),
       ),
-
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: FloatingActionButton.extended(
@@ -167,7 +180,7 @@ class _KantinGedungWState extends State<KantinGedungW> {
 
 class VendorMenuGedungWPage extends StatefulWidget {
   final String vendorName;
-  final int vendorId; // penting agar bisa fetch menu berdasarkan vendorId
+  final int vendorId;
   final CartModel cart;
   final VoidCallback onCartUpdated;
 
@@ -191,10 +204,6 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
   void initState() {
     super.initState();
     kantinGedungWMenu = ProductService.fetchKantinMenu(widget.vendorId);
-    kantinGedungWMenu.then((data) {
-      print(widget.vendorId);
-      print(widget.vendorName);
-    });
   }
 
   @override
@@ -207,7 +216,6 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 IconButton(
@@ -231,118 +239,136 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
             Container(height: 4, width: 350, color: const Color(0xFFFF7622)),
             const SizedBox(height: 30),
             Expanded(
-              child: FutureBuilder<
-                Map<String, Map<String, List<Map<String, dynamic>>>>
-              >(
-                future: kantinGedungWMenu,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('Menu tidak ditemukan'));
-                  }
-
-                  final data = snapshot.data!;
-
-                  if (!data.containsKey(widget.vendorName)) {
-                    return const Center(
-                      child: Text('Vendor tidak ditemukan di data menu'),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  setState(() {
+                    kantinGedungWMenu = ProductService.fetchKantinMenu(
+                      widget.vendorId,
                     );
-                  }
+                  });
+                },
+                child: FutureBuilder<
+                  Map<String, Map<String, List<Map<String, dynamic>>>>
+                >(
+                  future: kantinGedungWMenu,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Terjadi kesalahan saat mengambil data.\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(child: Text('Menu tidak ditemukan'));
+                    }
 
-                  final vendorMenus = data[widget.vendorName]!;
+                    final data = snapshot.data!;
+                    if (!data.containsKey(widget.vendorName)) {
+                      return const Center(
+                        child: Text(
+                          'Vendor tidak ditemukan di data menu',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      );
+                    }
 
-                  return ListView.builder(
-                    itemCount: vendorMenus.length,
-                    itemBuilder: (context, index) {
-                      final categoryName = vendorMenus.keys.elementAt(index);
-                      final menus = vendorMenus[categoryName]!;
+                    final vendorMenus = data[widget.vendorName]!;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              categoryName,
-                              style: const TextStyle(
-                                fontFamily: 'Sen',
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                    return ListView.builder(
+                      itemCount: vendorMenus.length,
+                      itemBuilder: (context, index) {
+                        final categoryName = vendorMenus.keys.elementAt(index);
+                        final menus = vendorMenus[categoryName]!;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                categoryName,
+                                style: const TextStyle(
+                                  fontFamily: 'Sen',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            menus.isEmpty
-                                ? Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  child: Text(
-                                    'Menu tidak tersedia',
-                                    style: TextStyle(
-                                      fontFamily: 'Sen',
-                                      fontSize: 16,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey[600],
+                              const SizedBox(height: 10),
+                              menus.isEmpty
+                                  ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
                                     ),
-                                  ),
-                                )
-                                : Column(
-                                  children:
-                                      menus
-                                          .map(
-                                            (menu) => Card(
-                                              elevation: 2,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
+                                    child: Text(
+                                      'Menu tidak tersedia',
+                                      style: TextStyle(
+                                        fontFamily: 'Sen',
+                                        fontSize: 16,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  )
+                                  : Column(
+                                    children:
+                                        menus.map((menu) {
+                                          return Card(
+                                            elevation: 2,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: ListTile(
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 15,
+                                                    vertical: 10,
+                                                  ),
+                                              title: Text(
+                                                menu['name'],
+                                                style: const TextStyle(
+                                                  fontFamily: 'Sen',
+                                                  fontSize: 18,
+                                                ),
                                               ),
-                                              child: ListTile(
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 15,
-                                                      vertical: 10,
-                                                    ),
-                                                title: Text(
-                                                  menu['name'],
-                                                  style: const TextStyle(
-                                                    fontFamily: 'Sen',
-                                                    fontSize: 18,
-                                                  ),
+                                              trailing: Text(
+                                                'Rp${(menu['price'] / 1000).toStringAsFixed(0)},000',
+                                                style: const TextStyle(
+                                                  fontFamily: 'Sen',
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
-                                                trailing: Text(
-                                                  'Rp${(menu['price']! / 1000).toStringAsFixed(0)},000',
-                                                  style: const TextStyle(
-                                                    fontFamily: 'Sen',
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                leading: GestureDetector(
-                                                  onTap: () async {
-                                                    // kode dialog tambah ke keranjang (sama seperti sebelumnya)
-                                                  },
-                                                  child: const Icon(
-                                                    Icons.add_circle_outline,
-                                                    size: 30,
-                                                    color: Colors.green,
-                                                  ),
+                                              ),
+                                              leading: GestureDetector(
+                                                onTap: () async {
+                                                  // Tambahkan dialog tambah ke keranjang
+                                                },
+                                                child: const Icon(
+                                                  Icons.add_circle_outline,
+                                                  size: 30,
+                                                  color: Colors.green,
                                                 ),
                                               ),
                                             ),
-                                          )
-                                          .toList(),
-                                ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
+                                          );
+                                        }).toList(),
+                                  ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],

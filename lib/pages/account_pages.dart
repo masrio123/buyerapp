@@ -27,15 +27,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Customer? _customer;
   bool _isLoading = true;
-  bool _isEditing = false;
-
-  String _nomorRekening = "";
-  String _atasNama = "";
-  String _selectedBank = "";
-
-  final TextEditingController _rekeningController = TextEditingController();
-  final TextEditingController _namaController = TextEditingController();
-  final List<String> _bankList = ["BRI", "Mandiri", "BCA"];
 
   @override
   void initState() {
@@ -48,30 +39,11 @@ class _ProfilePageState extends State<ProfilePage> {
       final customer = await CustomerService.fetchCustomerDetail();
       setState(() {
         _customer = customer;
-        _nomorRekening = customer.bankUser.accountNumber;
-        _atasNama = customer.bankUser.username;
-        _selectedBank = CustomerService.getBankName(customer.bankUser.id);
         _isLoading = false;
       });
     } catch (e) {
       print('Error: $e');
     }
-  }
-
-  void _toggleEdit() {
-    setState(() {
-      _isEditing = true;
-      _rekeningController.text = _nomorRekening;
-      _namaController.text = _atasNama;
-    });
-  }
-
-  void _saveRekening() {
-    setState(() {
-      _nomorRekening = _rekeningController.text;
-      _atasNama = _namaController.text;
-      _isEditing = false;
-    });
   }
 
   @override
@@ -80,163 +52,68 @@ class _ProfilePageState extends State<ProfilePage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    double screenWidth = MediaQuery.of(context).size.width;
-    double fontSizeTitle = screenWidth * 0.07;
-    double fontSizeSubTitle = screenWidth * 0.05;
-    double fontSizeText = screenWidth * 0.04;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
-              const CircleAvatar(
-                radius: 80,
-                backgroundImage: AssetImage('assets/customer.png'),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _customer!.customerName,
-                style: TextStyle(
-                  fontSize: fontSizeTitle,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                'Customer',
-                style: TextStyle(
-                  fontSize: fontSizeSubTitle,
-                  color: Colors.grey,
-                ),
+              // Header
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Text(
+                    "My Profile",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
+
+              // Avatar + Nama
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 36,
+                    backgroundImage: AssetImage('assets/customer.png'),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _customer!.customerName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Text(
+                        'Porter',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
               ProfileItem(
                 label: "Jurusan",
                 value: _customer!.department.departmentName,
               ),
               const ProfileItem(label: "Angkatan", value: "2021"),
-              const ProfileItem(label: "NRP", value: "c14210106"),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Nomor Rekening",
-                  style: TextStyle(fontSize: fontSizeText, color: Colors.grey),
-                ),
+              const ProfileItem(label: "NRP", value: "c14290001"),
+              const RatingItem(rating: 5.0),
+              ProfileItem(
+                label: "Nomor Rekening",
+                value: _customer!.bankUser.accountNumber,
               ),
-              const SizedBox(height: 5),
-              _isEditing
-                  ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _rekeningController,
-                        onChanged: (_) => setState(() {}),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: fontSizeText,
-                        ),
-                        decoration: inputDecoration("Nomor Rekening"),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _namaController,
-                        onChanged: (_) => setState(() {}),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: fontSizeText,
-                        ),
-                        decoration: inputDecoration("Atas Nama"),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: _selectedBank,
-                        items:
-                            _bankList
-                                .map(
-                                  (bank) => DropdownMenuItem(
-                                    value: bank,
-                                    child: Text(bank),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged:
-                            (value) => setState(() => _selectedBank = value!),
-                        decoration: inputDecoration("Pilih Bank"),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: ElevatedButton(
-                          onPressed: _saveRekening,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF7622),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            "Simpan",
-                            style: TextStyle(
-                              fontSize: fontSizeText,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                  : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _nomorRekening,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: fontSizeText,
-                              ),
-                            ),
-                            Text(
-                              "a.n $_atasNama",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: fontSizeText,
-                              ),
-                            ),
-                            Text(
-                              "Bank $_selectedBank",
-                              style: TextStyle(
-                                fontSize: fontSizeText,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: _toggleEdit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF7622),
-                        ),
-                        child: const Text(
-                          "Ganti",
-                          style: TextStyle(color: Colors.white, fontSize: 18),
-                        ),
-                      ),
-                    ],
-                  ),
             ],
           ),
         ),
@@ -257,11 +134,11 @@ class _ProfilePageState extends State<ProfilePage> {
         selectedItemColor: const Color(0xFFFF7622),
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
-        iconSize: 35,
-        unselectedFontSize: 15,
-        selectedFontSize: 15,
+        iconSize: 28,
+        selectedFontSize: 14,
+        unselectedFontSize: 14,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Order'),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
             label: 'Activity',
@@ -269,19 +146,6 @@ class _ProfilePageState extends State<ProfilePage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
         ],
       ),
-    );
-  }
-
-  InputDecoration inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: const Color(0xFFF1F1F1),
-      border: OutlineInputBorder(
-        borderSide: BorderSide.none,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }
@@ -294,24 +158,74 @@ class ProfileItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double fontSizeText = screenWidth * 0.04;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: fontSizeText, color: Colors.grey),
-        ),
-        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        const SizedBox(height: 6),
         Text(
           value,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: fontSizeText),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        const SizedBox(height: 19),
+        const SizedBox(height: 16),
         const Divider(),
       ],
     );
   }
+}
+
+class RatingItem extends StatelessWidget {
+  final double rating;
+
+  const RatingItem({super.key, required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Rating",
+          style: TextStyle(color: Colors.grey, fontSize: 14),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(Icons.star, color: Colors.orange, size: 20),
+            const SizedBox(width: 4),
+            Text(
+              rating.toStringAsFixed(1),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(),
+      ],
+    );
+  }
+}
+
+// Untuk animasi slide antar halaman
+class HorizontalSlideRoute extends PageRouteBuilder {
+  final Widget page;
+
+  HorizontalSlideRoute({required this.page})
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.ease;
+
+          final tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+      );
 }

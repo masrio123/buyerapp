@@ -85,4 +85,30 @@ class CartService {
       throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
     }
   }
+
+  static Future<Map<String, dynamic>> checkoutCart(int cartId) async {
+    print("🛒 Melakukan checkout untuk cart_id: $cartId");
+
+    final token = await getToken();
+
+    final response = await http.post(
+      Uri.parse('$baseURL/cart/$cartId/checkout'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print("✅ Checkout berhasil");
+      return jsonDecode(response.body);
+    } else {
+      final errorMessage = jsonDecode(response.body);
+      print(
+        "❌ Gagal checkout: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
+      );
+      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+    }
+  }
 }

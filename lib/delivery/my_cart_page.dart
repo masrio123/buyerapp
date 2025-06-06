@@ -68,6 +68,23 @@ class _MyCartPageState extends State<MyCartPage> {
       print('❌ Gagal menambahkan item ke keranjang: $e');
       _showErrorDialog('Gagal menambahkan item ke keranjang: $e');
     }
+
+    try {
+      await CartService.checkoutCart(cartId!);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => SearchingPorterPage(
+                subtotal: subtotal,
+                deliveryFee: totalShipping,
+                total: total,
+              ),
+        ),
+      );
+    } catch (e) {
+      _showErrorDialog('Gagal melakukan checkout belanja: $e');
+    }
   }
 
   void _showErrorDialog(String message) {
@@ -216,17 +233,6 @@ class _MyCartPageState extends State<MyCartPage> {
                               height: 48,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  // Navigator.push(
-                                  //   context,
-                                  //   MaterialPageRoute(
-                                  //     builder:
-                                  //         (context) => SearchingPorterPage(
-                                  //           subtotal: subtotal,
-                                  //           deliveryFee: totalShipping,
-                                  //           total: total,
-                                  //         ),
-                                  //   ),
-                                  // );
                                   _buatKeranjang();
                                 },
                                 style: ElevatedButton.styleFrom(

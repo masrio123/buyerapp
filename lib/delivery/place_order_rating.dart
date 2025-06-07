@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:petraporter_buyer/pages/main_pages.dart'; // Untuk clipboard
+import 'package:petraporter_buyer/pages/main_pages.dart';
+import '../services/cart_service.dart';
 
 class PlaceOrderRating extends StatelessWidget {
   const PlaceOrderRating({super.key});
@@ -28,43 +29,54 @@ class PlaceOrderRating extends StatelessWidget {
   void _showConfirmDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Konfirmasi', style: TextStyle(fontFamily: 'Sen')),
-        content: const Text('Proses orderan sekarang?', style: TextStyle(fontFamily: 'Sen')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(fontFamily: 'Sen')),
+      builder:
+          (_) => AlertDialog(
+            title: const Text(
+              'Konfirmasi',
+              style: TextStyle(fontFamily: 'Sen'),
+            ),
+            content: const Text(
+              'Proses orderan sekarang?',
+              style: TextStyle(fontFamily: 'Sen'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal', style: TextStyle(fontFamily: 'Sen')),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => const SearchingPorterPage(
+                            orderId: 1,
+                            subtotal: 45000,
+                            deliveryFee: 8000,
+                            total: 53000,
+                          ),
+                    ),
+                  );
+                },
+                child: const Text('Ya', style: TextStyle(fontFamily: 'Sen')),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SearchingPorterPage(
-                    subtotal: 45000,
-                    deliveryFee: 8000,
-                    total: 53000,
-                  ),
-                ),
-              );
-            },
-            child: const Text('Ya', style: TextStyle(fontFamily: 'Sen')),
-          ),
-        ],
-      ),
     );
   }
 }
 
 class SearchingPorterPage extends StatefulWidget {
+  final int orderId;
   final int subtotal;
   final int deliveryFee;
   final int total;
 
   const SearchingPorterPage({
     Key? key,
+    required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
@@ -77,24 +89,33 @@ class SearchingPorterPage extends StatefulWidget {
 class _SearchingPorterPageState extends State<SearchingPorterPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Future<String> _porterMessage;
 
   @override
   void initState() {
     super.initState();
-    _controller =
-    AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat();
+    _porterMessage = CartService.searchPorter(widget.orderId);
 
-    Future.delayed(const Duration(seconds: 4), () {
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
+    Future.wait([
+      _porterMessage,
+      Future.delayed(const Duration(seconds: 4)),
+    ]).then((values) {
       _controller.dispose();
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => PorterFoundPage(
-            subtotal: widget.subtotal,
-            deliveryFee: widget.deliveryFee,
-            total: widget.total,
-          ),
+          builder:
+              (_) => PorterFoundPage(
+                porterMessage: values[0] as String,
+                subtotal: widget.subtotal,
+                deliveryFee: widget.deliveryFee,
+                total: widget.total,
+              ),
         ),
       );
     });
@@ -110,7 +131,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
           children: [
             RotationTransition(
               turns: _controller,
-              child: Image.asset('assets/loading.png', width: 60), // Ganti icon animasi sesuai selera
+              child: Image.asset('assets/loading.png', width: 60),
             ),
             const SizedBox(height: 20),
             const Text(
@@ -123,13 +144,16 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     );
   }
 }
+
 class PorterFoundPage extends StatelessWidget {
+  final String porterMessage;
   final int subtotal;
   final int deliveryFee;
   final int total;
 
   const PorterFoundPage({
     Key? key,
+    required this.porterMessage,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
@@ -141,14 +165,13 @@ class PorterFoundPage extends StatelessWidget {
       'id': 'C14210299',
       'major': 'INFORMATIKA',
       'account': '2161842189',
-      'owner': 'A.N Jovan Marcel'
+      'owner': 'A.N Jovan Marcel',
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    final random = Random();
-    final porter = porterList[random.nextInt(porterList.length)];
+    final porter = porterList[Random().nextInt(porterList.length)];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -156,87 +179,136 @@ class PorterFoundPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 1,
         foregroundColor: Colors.black,
-        title: const Text('Porter Found!', style: TextStyle(fontFamily: 'Sen', fontSize: 20)),
+        title: const Text(
+          'Porter Found!',
+          style: TextStyle(fontFamily: 'Sen', fontSize: 20),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: AssetImage(_getPorterPhoto(porter['name']!)),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    porter['name']!,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Sen'),
-                  ),
-                  Text(porter['id']!, style: const TextStyle(fontSize: 16, fontFamily: 'Sen')),
-                  Text(porter['major']!, style: const TextStyle(fontSize: 16, fontFamily: 'Sen')),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.phone, color: Colors.green)),
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.chat, color: Colors.blue)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            _buildPorterInfo(porter),
             const Divider(height: 30),
-            const Text('TOTAL PAYMENT', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Sen')),
-            const SizedBox(height: 10),
-            _buildPriceRow('Total Price', subtotal),
-            _buildPriceRow('Delivery Fee', deliveryFee),
-            const Divider(),
-            _buildPriceRow('TOTAL', total, bold: true),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    porter['account']!,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Sen'),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: porter['account']!));
-                  },
-                  child: const Text('COPY', style: TextStyle(fontFamily: 'Sen', fontSize: 16)),
-                )
-              ],
-            ),
-            Text(porter['owner']!, style: const TextStyle(fontSize: 16, fontFamily: 'Sen')),
+            _buildPaymentSection(),
             const SizedBox(height: 30),
-            const Text('Status Pengiriman', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Sen')),
-            const SizedBox(height: 10),
-            ...[
-              'Pesanan diterima oleh restoran',
-              'Sedang disiapkan',
-              'Telah dijemput porter',
-              'Segera tiba',
-            ].map((step) => _buildProgressStep(step)).toList(),
+            _buildDeliverySteps(),
             const SizedBox(height: 30),
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RatingPage()));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF7A00),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Rate Order', style: TextStyle(fontSize: 16, fontFamily: 'Sen', color: Colors.white)),
-              ),
-            ),
+            _buildRateButton(context),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPorterInfo(Map<String, String> porter) {
+    return Center(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundImage: AssetImage(_getPorterPhoto(porter['name']!)),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            porter['name']!,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Sen',
+            ),
+          ),
+          Text(
+            porter['id']!,
+            style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
+          ),
+          Text(
+            porter['major']!,
+            style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.phone, color: Colors.green),
+              SizedBox(width: 10),
+              Icon(Icons.chat, color: Colors.blue),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'TOTAL PAYMENT',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Sen',
+          ),
+        ),
+        const SizedBox(height: 10),
+        _buildPriceRow('Total Price', subtotal),
+        _buildPriceRow('Delivery Fee', deliveryFee),
+        const Divider(),
+        _buildPriceRow('TOTAL', total, bold: true),
+      ],
+    );
+  }
+
+  Widget _buildDeliverySteps() {
+    final steps = [
+      'Pesanan diterima oleh restoran',
+      'Sedang disiapkan',
+      'Telah dijemput porter',
+      'Segera tiba',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Status Pengiriman',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Sen',
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...steps.map((step) => _buildProgressStep(step)).toList(),
+      ],
+    );
+  }
+
+  Widget _buildRateButton(BuildContext context) {
+    return Center(
+      child: ElevatedButton(
+        onPressed:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RatingPage()),
+            ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF7A00),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          'Rate Order',
+          style: TextStyle(
+            fontSize: 16,
+            fontFamily: 'Sen',
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -271,7 +343,11 @@ class PorterFoundPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Icon(Icons.radio_button_checked, color: Colors.orange, size: 20),
+          const Icon(
+            Icons.radio_button_checked,
+            color: Colors.orange,
+            size: 20,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -287,13 +363,13 @@ class PorterFoundPage extends StatelessWidget {
   String _formatCurrency(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]}.',
+      (m) => '${m[1]}.',
     );
   }
 
   String _getPorterPhoto(String name) {
     if (name.contains('Jovan')) return 'assets/porter1.png';
-    return 'assets/default_porter.jpg'; // fallback jika tidak cocok
+    return 'assets/default_porter.jpg';
   }
 }
 
@@ -331,20 +407,24 @@ class _RatingPageState extends State<RatingPage> {
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return IconButton(
+                children: List.generate(
+                  5,
+                  (index) => IconButton(
                     onPressed: () => setState(() => _selectedStars = index + 1),
                     icon: Icon(
                       Icons.star,
-                      color: index < _selectedStars ? Colors.orange : Colors.grey[300],
+                      color:
+                          index < _selectedStars
+                              ? Colors.orange
+                              : Colors.grey[300],
                       size: 50,
                     ),
-                  );
-                }),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30), // << Kiri kanan kecil
+                padding: const EdgeInsets.symmetric(horizontal: 30),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[100],
@@ -374,20 +454,31 @@ class _RatingPageState extends State<RatingPage> {
                   ),
                 ),
               ),
-
-
               const SizedBox(height: 30),
               ElevatedButton(
-                onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => MainPage()),
-                ),
+                onPressed:
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => MainPage()),
+                    ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF7A00),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Back To Home', style: TextStyle(fontFamily: 'Sen', fontSize: 16, color: Colors.white)),
+                child: const Text(
+                  'Back To Home',
+                  style: TextStyle(
+                    fontFamily: 'Sen',
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ],
           ),

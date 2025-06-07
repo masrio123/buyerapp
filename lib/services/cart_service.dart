@@ -38,7 +38,7 @@ class CartService {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'customer_id': int.parse(customer_id),
+        'customer_id': customer_id,
         'tenant_location_id': tenantLocationId,
       }),
     );
@@ -109,6 +109,27 @@ class CartService {
         "❌ Gagal checkout: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
       );
       throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+    }
+  }
+
+  static Future<String> searchPorter(int orderId) async {
+    final token =
+        await getToken(); // Ganti dengan fungsi yang sesuai untuk ambil token
+    final response = await http.get(
+      Uri.parse('$baseURL/orders/search-porter/$orderId'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+      print("berhasil mendapatkan porter : $jsonData['message']");
+      return jsonData['message'] ?? 'Tidak ada pesan';
+    } else {
+      final errorMessage = jsonDecode(response.body);
+      print(
+        "❌ Gagal mendapatkan porter: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
+      );
+      throw Exception('Gagal mengambil data porter');
     }
   }
 }

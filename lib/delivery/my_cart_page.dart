@@ -40,7 +40,7 @@ class _MyCartPageState extends State<MyCartPage> {
   }
 
   void _buatKeranjang() async {
-    int? cartId;
+    int cartId;
 
     try {
       final result = await CartService.createCart();
@@ -76,6 +76,7 @@ class _MyCartPageState extends State<MyCartPage> {
         MaterialPageRoute(
           builder:
               (context) => SearchingPorterPage(
+                orderId: cartId,
                 subtotal: subtotal,
                 deliveryFee: totalShipping,
                 total: total,

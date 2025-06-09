@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:petraporter_buyer/pages/main_pages.dart';
 import '../services/cart_service.dart';
+import '../models/porter.dart';
 
 class PlaceOrderRating extends StatelessWidget {
   const PlaceOrderRating({super.key});
@@ -89,36 +90,70 @@ class SearchingPorterPage extends StatefulWidget {
 class _SearchingPorterPageState extends State<SearchingPorterPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Future<String> _porterMessage;
+  bool _isError = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _porterMessage = CartService.searchPorter(widget.orderId);
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
 
-    Future.wait([
-      _porterMessage,
-      Future.delayed(const Duration(seconds: 4)),
-    ]).then((values) {
+    _startSearching();
+  }
+
+  void _startSearching() async {
+    setState(() {
+      _isError = false;
+      _isLoading = true;
+    });
+
+    try {
+      final porterFuture = CartService.searchPorter(widget.orderId);
+      final results = await Future.wait([
+        porterFuture,
+        Future.delayed(const Duration(seconds: 4)),
+      ]);
+
+      if (!mounted) return;
       _controller.dispose();
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder:
               (_) => PorterFoundPage(
-                porterMessage: values[0] as String,
+                orderId: widget.orderId,
                 subtotal: widget.subtotal,
                 deliveryFee: widget.deliveryFee,
                 total: widget.total,
               ),
         ),
       );
-    });
+    } catch (e) {
+      if (!mounted) return;
+      _controller.stop(); // stop animasi
+      setState(() {
+        _isError = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    try {
+      if (_controller.isAnimating) {
+        _controller.stop();
+      }
+      _controller.dispose();
+    } catch (e, stack) {
+      debugPrint('Dispose error: $e');
+    }
+
+    super.dispose();
   }
 
   @override
@@ -126,38 +161,68 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            RotationTransition(
-              turns: _controller,
-              child: Image.asset('assets/loading.png', width: 60),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Mencari Porter...',
-              style: TextStyle(fontFamily: 'Sen', fontSize: 18),
-            ),
-          ],
-        ),
+        child:
+            _isLoading
+                ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    RotationTransition(
+                      turns: _controller,
+                      child: Image.asset('assets/loading.png', width: 60),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Mencari Porter...',
+                      style: TextStyle(fontFamily: 'Sen', fontSize: 18),
+                    ),
+                  ],
+                )
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 60,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Gagal menemukan porter',
+                      style: TextStyle(fontFamily: 'Sen', fontSize: 18),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                        _controller.reset();
+                        _controller.repeat();
+                        _startSearching();
+                      },
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ],
+                ),
       ),
     );
   }
 }
 
 class PorterFoundPage extends StatelessWidget {
-  final String porterMessage;
+  final int orderId;
   final int subtotal;
   final int deliveryFee;
   final int total;
 
   const PorterFoundPage({
     Key? key,
-    required this.porterMessage,
+    required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
   }) : super(key: key);
+
+  Future<PorterResult> _fetchPorter() {
+    return CartService.searchPorter(orderId);
+  }
 
   final List<Map<String, String>> porterList = const [
     {
@@ -171,8 +236,6 @@ class PorterFoundPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final porter = porterList[Random().nextInt(porterList.length)];
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -183,36 +246,57 @@ class PorterFoundPage extends StatelessWidget {
           'Porter Found!',
           style: TextStyle(fontFamily: 'Sen', fontSize: 20),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPorterInfo(porter),
-            const Divider(height: 30),
-            _buildPaymentSection(),
-            const SizedBox(height: 30),
-            _buildDeliverySteps(),
-            const SizedBox(height: 30),
-            _buildRateButton(context),
-          ],
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.popUntil(context, (route) => route.isFirst);
+          },
         ),
+      ),
+      body: FutureBuilder<PorterResult>(
+        future: _fetchPorter(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('❌ Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data! == null) {
+            return const Center(child: Text('Porter tidak ditemukan.'));
+          }
+
+          final porter = snapshot.data!;
+
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPorterInfo(porter),
+                const Divider(height: 30),
+                _buildPaymentSection(porter),
+                const SizedBox(height: 30),
+                _buildDeliverySteps(),
+                const SizedBox(height: 30),
+                _buildRateButton(context),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildPorterInfo(Map<String, String> porter) {
+  Widget _buildPorterInfo(PorterResult porter) {
     return Center(
       child: Column(
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundImage: AssetImage(_getPorterPhoto(porter['name']!)),
+            backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
           ),
           const SizedBox(height: 10),
           Text(
-            porter['name']!,
+            porter.porterName,
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -220,11 +304,11 @@ class PorterFoundPage extends StatelessWidget {
             ),
           ),
           Text(
-            porter['id']!,
+            porter.porterNrp,
             style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
           ),
           Text(
-            porter['major']!,
+            porter.porterDepartment,
             style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
           ),
           const SizedBox(height: 10),
@@ -241,7 +325,7 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentSection() {
+  Widget _buildPaymentSection(PorterResult porter) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -254,10 +338,10 @@ class PorterFoundPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _buildPriceRow('Total Price', subtotal),
-        _buildPriceRow('Delivery Fee', deliveryFee),
+        _buildPriceRow('Total Price', porter.totalPrice),
+        _buildPriceRow('Delivery Fee', porter.shippingCost),
         const Divider(),
-        _buildPriceRow('TOTAL', total, bold: true),
+        _buildPriceRow('TOTAL', porter.grandTotal, bold: true),
       ],
     );
   }
@@ -314,7 +398,20 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceRow(String label, int amount, {bool bold = false}) {
+  Widget _buildPriceRow(String label, dynamic amount, {bool bold = false}) {
+    // Konversi dynamic amount ke int
+    int intAmount;
+
+    if (amount is int) {
+      intAmount = amount;
+    } else if (amount is String) {
+      // Parsing string ke double dulu, lalu dibulatkan ke int
+      double? parsed = double.tryParse(amount);
+      intAmount = parsed?.round() ?? 0;
+    } else {
+      intAmount = 0; // default fallback
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -327,7 +424,7 @@ class PorterFoundPage extends StatelessWidget {
           ),
         ),
         Text(
-          'Rp ${_formatCurrency(amount)}',
+          'Rp ${_formatCurrency(intAmount)}',
           style: TextStyle(
             fontSize: 16,
             fontFamily: 'Sen',

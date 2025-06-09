@@ -71,6 +71,7 @@ class _MyCartPageState extends State<MyCartPage> {
 
     try {
       await CartService.checkoutCart(cartId!);
+      widget.cart.clear();
       Navigator.push(
         context,
         MaterialPageRoute(

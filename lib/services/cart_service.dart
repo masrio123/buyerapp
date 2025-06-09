@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constant/constant.dart';
+import '../models/porter.dart';
 
 class CartService {
   static Future<String?> getToken() async {
@@ -112,9 +113,8 @@ class CartService {
     }
   }
 
-  static Future<String> searchPorter(int orderId) async {
-    final token =
-        await getToken(); // Ganti dengan fungsi yang sesuai untuk ambil token
+  static Future<PorterResult> searchPorter(int orderId) async {
+    final token = await getToken();
     final response = await http.get(
       Uri.parse('$baseURL/orders/search-porter/$orderId'),
       headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
@@ -122,8 +122,8 @@ class CartService {
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
-      print("berhasil mendapatkan porter : $jsonData['message']");
-      return jsonData['message'] ?? 'Tidak ada pesan';
+      print("✅ Berhasil mendapatkan porter: ${jsonData['message']}");
+      return PorterResult.fromJson(jsonData);
     } else {
       final errorMessage = jsonDecode(response.body);
       print(

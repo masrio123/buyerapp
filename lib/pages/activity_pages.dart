@@ -1,33 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/pages/account_pages.dart';
-
+import '../services/history_service.dart';
+import '../models/history.dart';
 import 'main_pages.dart';
 
-class ActivityPages extends StatelessWidget {
-  final List<Order> orders = [
-    Order(
-      date: '24 Maret 2025',
-      porter: 'Jovan',
-      id: '1101',
-      items: [
-        RestaurantOrder(
-          name: 'Ndokee Express',
-          items: [
-            OrderItem(name: 'Nasi Goreng Ayam', quantity: 1, price: 30000),
-            OrderItem(name: 'Nasi Goreng Hongkong', quantity: 1, price: 30000),
-          ],
-        ),
-        RestaurantOrder(
-          name: 'Depot Kita',
-          items: [
-            OrderItem(name: 'Mie Goreng', quantity: 1, price: 30000),
-            OrderItem(name: 'Nasi Empal', quantity: 1, price: 30000),
-          ],
-          note: 'extra garam sama msg',
-        ),
-      ],
-    ),
-  ];
+class ActivityPages extends StatefulWidget {
+  const ActivityPages({Key? key}) : super(key: key);
+
+  @override
+  State<ActivityPages> createState() => _ActivityPagesState();
+}
+
+class _ActivityPagesState extends State<ActivityPages> {
+  late Future<List<Order>> _futureOrders;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureOrders = HistoryService.fetchCustomerDetail();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,51 +29,75 @@ class ActivityPages extends StatelessWidget {
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: Text(
+          title: const Text(
             'Activity',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
-          iconTheme: IconThemeData(color: Colors.black),
+          iconTheme: const IconThemeData(color: Colors.black),
         ),
-        body: ListView.builder(
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            final order = orders[index];
-            return Card(
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: Icon(Icons.receipt_long, size: 36),
-                title: Text(
-                  order.date,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Porter: ${order.porter}'),
-                    Text('Order ID: ${order.id}'),
-                  ],
-                ),
-                trailing: ElevatedButton(
-                  onPressed: () => _showOrderDetail(context, order),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFFF7622),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        body: FutureBuilder<List<Order>>(
+          future: _futureOrders,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No order history found.'));
+            }
+
+            final orders = snapshot.data!;
+
+            return ListView.builder(
+              itemCount: orders.length,
+              itemBuilder: (context, index) {
+                final order = orders[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  child: Text('Details', style: TextStyle(fontSize: 12)),
-                ),
-              ),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.receipt_long, size: 36),
+                    title: Text(
+                      order.date.isNotEmpty ? order.date : '-',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Porter: ${order.porter}'),
+                        Text('Order ID: ${order.id}'),
+                      ],
+                    ),
+                    trailing: ElevatedButton(
+                      onPressed: () => _showOrderDetail(context, order),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF7622),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      child: const Text(
+                        'Details',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
@@ -97,7 +112,7 @@ class ActivityPages extends StatelessWidget {
             } else if (index == 2) {
               Navigator.push(
                 context,
-                HorizontalSlideRoute(page: (AccountPages())),
+                HorizontalSlideRoute(page: AccountPages()),
               );
             }
           },
@@ -140,21 +155,23 @@ class ActivityPages extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "Order Details",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),
                       ),
-                      SizedBox(height: 12),
-                      Text("Date: ${order.date}\n"),
+                      const SizedBox(height: 12),
+                      Text(
+                        "Date: ${order.date.isNotEmpty ? order.date : '-'}\n",
+                      ),
                       for (final resto in order.items) ...[
                         Text(
                           resto.name,
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(height: 6),
+                        const SizedBox(height: 6),
                         for (final item in resto.items)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -170,56 +187,56 @@ class ActivityPages extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               'Catatan: ${resto.note!}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.grey,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
                           ),
-                        Divider(),
+                        const Divider(),
                       ],
-                      SizedBox(height: 10),
-                      Text(
+                      const SizedBox(height: 10),
+                      const Text(
                         "TOTAL PAYMENT",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Total Price'),
-                          Text('Rp${order.totalPrice()}'),
+                          const Text('Total Price'),
+                          Text('Rp${order.grandTotal}'),
                         ],
                       ),
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [Text('Delivery Fee'), Text('Rp6000')],
                       ),
-                      Divider(),
+                      const Divider(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
+                          const Text(
                             'TOTAL',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            'Rp${order.totalPrice() + 6000}',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            'Rp${order.grandTotal + 6000}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       Center(
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFFFF7622),
+                            backgroundColor: const Color(0xFFFF7622),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: Text('Close'),
+                          child: const Text('Close'),
                         ),
                       ),
                     ],
@@ -254,41 +271,4 @@ class HorizontalSlideRoute extends PageRouteBuilder {
           );
         },
       );
-}
-
-// Model
-class Order {
-  final String date;
-  final String porter;
-  final String id;
-  final List<RestaurantOrder> items;
-
-  Order({
-    required this.date,
-    required this.porter,
-    required this.id,
-    required this.items,
-  });
-
-  int totalPrice() {
-    return items
-        .expand((e) => e.items)
-        .fold(0, (sum, item) => sum + item.price);
-  }
-}
-
-class RestaurantOrder {
-  final String name;
-  final List<OrderItem> items;
-  final String? note;
-
-  RestaurantOrder({required this.name, required this.items, this.note});
-}
-
-class OrderItem {
-  final String name;
-  final int quantity;
-  final int price;
-
-  OrderItem({required this.name, required this.quantity, required this.price});
 }

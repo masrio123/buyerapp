@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:petraporter_buyer/pages/main_pages.dart';
 import '../services/cart_service.dart';
 import '../models/porter.dart';
+import 'dart:async';
 
 class PlaceOrderRating extends StatelessWidget {
   const PlaceOrderRating({super.key});
@@ -102,6 +103,15 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     )..repeat();
 
     _startSearching();
+    startInterval();
+  }
+
+  Timer? _timer;
+
+  void startInterval() {
+    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
+      _startSearching();
+    });
   }
 
   void _startSearching() async {
@@ -133,6 +143,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
         ),
       );
     } catch (e) {
+      print("gagal mencari porter karena $e");
       if (!mounted) return;
       _controller.stop(); // stop animasi
       setState(() {
@@ -275,7 +286,7 @@ class PorterFoundPage extends StatelessWidget {
                 const Divider(height: 30),
                 _buildPaymentSection(porter),
                 const SizedBox(height: 30),
-                _buildDeliverySteps(),
+                _buildDeliverySteps(porter),
                 const SizedBox(height: 30),
                 _buildRateButton(context),
               ],
@@ -346,14 +357,7 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDeliverySteps() {
-    final steps = [
-      'Pesanan diterima oleh restoran',
-      'Sedang disiapkan',
-      'Telah dijemput porter',
-      'Segera tiba',
-    ];
-
+  Widget _buildDeliverySteps(PorterResult porter) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -366,7 +370,7 @@ class PorterFoundPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ...steps.map((step) => _buildProgressStep(step)).toList(),
+        ...porter.status.map((step) => _buildProgressStep(step)).toList(),
       ],
     );
   }
@@ -435,21 +439,26 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressStep(String text) {
+  Widget _buildProgressStep(OrderStatus step) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Icon(
-            Icons.radio_button_checked,
-            color: Colors.orange,
+          Icon(
+            step.key ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: step.key ? Colors.green : Colors.grey,
             size: 20,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              text,
-              style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
+              step.label,
+              style: TextStyle(
+                fontSize: 16,
+                fontFamily: 'Sen',
+                color: step.key ? Colors.black : Colors.grey,
+                fontWeight: step.key ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
           ),
         ],

@@ -17,7 +17,7 @@ class CartService {
 
   static Future<int?> getLocationId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('selected_location_id');
+    return prefs.getInt('selected_location_id') ?? 1;
   }
 
   static Future<Map<String, dynamic>> createCart() async {

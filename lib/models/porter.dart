@@ -6,6 +6,7 @@ class PorterResult {
   final String porterName;
   final String porterNrp;
   final String porterDepartment;
+  final List<OrderStatus> status; // ✅ Tambahan field status
 
   PorterResult({
     required this.message,
@@ -15,6 +16,7 @@ class PorterResult {
     required this.porterName,
     required this.porterNrp,
     required this.porterDepartment,
+    required this.status,
   });
 
   factory PorterResult.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,19 @@ class PorterResult {
       porterName: porter['name'],
       porterNrp: porter['nrp'],
       porterDepartment: porter['department'],
+      status:
+          (json['status'] as List).map((e) => OrderStatus.fromJson(e)).toList(),
     );
+  }
+}
+
+class OrderStatus {
+  final String label;
+  final bool key;
+
+  OrderStatus({required this.label, required this.key});
+
+  factory OrderStatus.fromJson(Map<String, dynamic> json) {
+    return OrderStatus(label: json['label'], key: json['key']);
   }
 }

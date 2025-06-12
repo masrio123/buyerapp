@@ -3,6 +3,7 @@ import 'package:petraporter_buyer/pages/account_pages.dart';
 import '../services/history_service.dart';
 import '../models/history.dart';
 import 'main_pages.dart';
+import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 
 class ActivityPages extends StatefulWidget {
   const ActivityPages({Key? key}) : super(key: key);
@@ -77,6 +78,20 @@ class _ActivityPagesState extends State<ActivityPages> {
                         Text('Order ID: ${order.id}'),
                       ],
                     ),
+                    onTap: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => PorterFoundPage(
+                                orderId: int.parse(order.id),
+                                subtotal: 0,
+                                deliveryFee: 0,
+                                total: 0,
+                              ),
+                        ),
+                      );
+                    },
                     trailing: ElevatedButton(
                       onPressed: () => _showOrderDetail(context, order),
                       style: ElevatedButton.styleFrom(

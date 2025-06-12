@@ -103,15 +103,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     )..repeat();
 
     _startSearching();
-    startInterval();
-  }
-
-  Timer? _timer;
-
-  void startInterval() {
-    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
-      _startSearching();
-    });
   }
 
   void _startSearching() async {
@@ -217,7 +208,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
   }
 }
 
-class PorterFoundPage extends StatelessWidget {
+class PorterFoundPage extends StatefulWidget {
   final int orderId;
   final int subtotal;
   final int deliveryFee;
@@ -231,19 +222,35 @@ class PorterFoundPage extends StatelessWidget {
     required this.total,
   }) : super(key: key);
 
-  Future<PorterResult> _fetchPorter() {
-    return CartService.searchPorter(orderId);
+  @override
+  State<PorterFoundPage> createState() => _PorterFoundPageState();
+}
+
+class _PorterFoundPageState extends State<PorterFoundPage> {
+  late Future<PorterResult> _porterFuture;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _porterFuture = _fetchPorter();
+
+    _timer = Timer.periodic(Duration(seconds: 15), (timer) {
+      setState(() {
+        _porterFuture = _fetchPorter();
+      });
+    });
   }
 
-  final List<Map<String, String>> porterList = const [
-    {
-      'name': 'Jovan M',
-      'id': 'C14210299',
-      'major': 'INFORMATIKA',
-      'account': '2161842189',
-      'owner': 'A.N Jovan Marcel',
-    },
-  ];
+  Future<PorterResult> _fetchPorter() {
+    return CartService.searchPorter(widget.orderId);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +272,7 @@ class PorterFoundPage extends StatelessWidget {
         ),
       ),
       body: FutureBuilder<PorterResult>(
-        future: _fetchPorter(),
+        future: _porterFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -474,8 +481,7 @@ class PorterFoundPage extends StatelessWidget {
   }
 
   String _getPorterPhoto(String name) {
-    if (name.contains('Jovan')) return 'assets/porter1.png';
-    return 'assets/default_porter.jpg';
+    return 'assets/porter1.png';
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:petraporter_buyer/models/history.dart';
 import 'package:petraporter_buyer/pages/main_pages.dart';
 import '../services/cart_service.dart';
 import '../models/porter.dart';
@@ -248,8 +249,14 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
 
   @override
   void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    try {
+      _timer?.cancel();
+    } catch (e, stackTrace) {
+      debugPrint('Error saat dispose: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      super.dispose();
+    }
   }
 
   @override
@@ -267,7 +274,11 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.popUntil(context, (route) => route.isFirst);
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const MainPage()),
+              (route) => false, // Hapus semua halaman sebelumnya
+            );
           },
         ),
       ),
@@ -295,7 +306,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                 const SizedBox(height: 30),
                 _buildDeliverySteps(porter),
                 const SizedBox(height: 30),
-                _buildRateButton(context),
+                _buildRateButton(context, porter),
               ],
             ),
           );
@@ -382,14 +393,17 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
-  Widget _buildRateButton(BuildContext context) {
+  Widget _buildRateButton(BuildContext context, PorterResult porter) {
     return Center(
       child: ElevatedButton(
-        onPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const RatingPage()),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RatingPage(orderId: porter.orderId),
             ),
+          );
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF7A00),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -486,7 +500,9 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
 }
 
 class RatingPage extends StatefulWidget {
-  const RatingPage({super.key});
+  final int orderId;
+
+  const RatingPage({Key? key, required this.orderId}) : super(key: key);
 
   @override
   State<RatingPage> createState() => _RatingPageState();
@@ -495,6 +511,40 @@ class RatingPage extends StatefulWidget {
 class _RatingPageState extends State<RatingPage> {
   int _selectedStars = 5;
   final TextEditingController _controller = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _submitRating() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await CartService.ratePorter(
+        orderId: widget.orderId,
+        rating: _selectedStars,
+        review: _controller.text,
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result['message'])));
+
+      if (result['success']) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainPage()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -568,11 +618,7 @@ class _RatingPageState extends State<RatingPage> {
               ),
               const SizedBox(height: 30),
               ElevatedButton(
-                onPressed:
-                    () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainPage()),
-                    ),
+                onPressed: _isLoading ? null : _submitRating,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF7A00),
                   padding: const EdgeInsets.symmetric(
@@ -583,14 +629,17 @@ class _RatingPageState extends State<RatingPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Back To Home',
-                  style: TextStyle(
-                    fontFamily: 'Sen',
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
+                child:
+                    _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                          'Submit & Back To Home',
+                          style: TextStyle(
+                            fontFamily: 'Sen',
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
               ),
             ],
           ),

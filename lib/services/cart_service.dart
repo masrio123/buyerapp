@@ -132,4 +132,40 @@ class CartService {
       throw Exception('Gagal mengambil data porter');
     }
   }
+
+  static Future<Map<String, dynamic>> ratePorter({
+    required int orderId,
+    required int rating,
+    String? review,
+  }) async {
+    final token = await getToken();
+
+    if (token == null) {
+      throw Exception('Token not found');
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseURL/orders/rate-porter/$orderId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'rating': rating, 'review': review ?? ''}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return {
+        'success': true,
+        'message': data['message'] ?? 'Berhasil memberikan rating',
+      };
+    } else {
+      final error = jsonDecode(response.body);
+      return {
+        'success': false,
+        'message': error['message'] ?? 'Gagal memberikan rating',
+      };
+    }
+  }
 }

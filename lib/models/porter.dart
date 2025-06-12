@@ -1,4 +1,5 @@
 class PorterResult {
+  final int orderId;
   final String message;
   final String totalPrice;
   final String shippingCost;
@@ -9,6 +10,7 @@ class PorterResult {
   final List<OrderStatus> status; // ✅ Tambahan field status
 
   PorterResult({
+    required this.orderId,
     required this.message,
     required this.totalPrice,
     required this.shippingCost,
@@ -24,6 +26,7 @@ class PorterResult {
     final porter = data['porter'];
 
     return PorterResult(
+      orderId: data['order_id'],
       message: json['message'],
       totalPrice: data['total_price'],
       shippingCost: data['shipping_cost'],

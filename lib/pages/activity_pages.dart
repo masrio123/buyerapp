@@ -79,18 +79,24 @@ class _ActivityPagesState extends State<ActivityPages> {
                       ],
                     ),
                     onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => PorterFoundPage(
-                                orderId: int.parse(order.id),
-                                subtotal: 0,
-                                deliveryFee: 0,
-                                total: 0,
-                              ),
-                        ),
-                      );
+                      if (order.id != null && int.tryParse(order.id) != null) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => PorterFoundPage(
+                                  orderId: int.parse(order.id),
+                                  subtotal: 0,
+                                  deliveryFee: 0,
+                                  total: 0,
+                                ),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Order ID tidak valid')),
+                        );
+                      }
                     },
                     trailing: ElevatedButton(
                       onPressed: () => _showOrderDetail(context, order),

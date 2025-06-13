@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:petraporter_buyer/models/history.dart';
 import 'package:petraporter_buyer/pages/main_pages.dart';
 import '../services/cart_service.dart';
 import '../models/porter.dart';
+import 'dart:async';
 
 class PlaceOrderRating extends StatelessWidget {
   const PlaceOrderRating({super.key});
@@ -133,6 +135,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
         ),
       );
     } catch (e) {
+      print("gagal mencari porter karena $e");
       if (!mounted) return;
       _controller.stop(); // stop animasi
       setState(() {
@@ -206,7 +209,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
   }
 }
 
-class PorterFoundPage extends StatelessWidget {
+class PorterFoundPage extends StatefulWidget {
   final int orderId;
   final int subtotal;
   final int deliveryFee;
@@ -220,19 +223,41 @@ class PorterFoundPage extends StatelessWidget {
     required this.total,
   }) : super(key: key);
 
-  Future<PorterResult> _fetchPorter() {
-    return CartService.searchPorter(orderId);
+  @override
+  State<PorterFoundPage> createState() => _PorterFoundPageState();
+}
+
+class _PorterFoundPageState extends State<PorterFoundPage> {
+  late Future<PorterResult> _porterFuture;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _porterFuture = _fetchPorter();
+
+    _timer = Timer.periodic(Duration(seconds: 15), (timer) {
+      setState(() {
+        _porterFuture = _fetchPorter();
+      });
+    });
   }
 
-  final List<Map<String, String>> porterList = const [
-    {
-      'name': 'Jovan M',
-      'id': 'C14210299',
-      'major': 'INFORMATIKA',
-      'account': '2161842189',
-      'owner': 'A.N Jovan Marcel',
-    },
-  ];
+  Future<PorterResult> _fetchPorter() {
+    return CartService.searchPorter(widget.orderId);
+  }
+
+  @override
+  void dispose() {
+    try {
+      _timer?.cancel();
+    } catch (e, stackTrace) {
+      debugPrint('Error saat dispose: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      super.dispose();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -249,12 +274,16 @@ class PorterFoundPage extends StatelessWidget {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.popUntil(context, (route) => route.isFirst);
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const MainPage()),
+              (route) => false, // Hapus semua halaman sebelumnya
+            );
           },
         ),
       ),
       body: FutureBuilder<PorterResult>(
-        future: _fetchPorter(),
+        future: _porterFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -275,9 +304,9 @@ class PorterFoundPage extends StatelessWidget {
                 const Divider(height: 30),
                 _buildPaymentSection(porter),
                 const SizedBox(height: 30),
-                _buildDeliverySteps(),
+                _buildDeliverySteps(porter),
                 const SizedBox(height: 30),
-                _buildRateButton(context),
+                _buildRateButton(context, porter),
               ],
             ),
           );
@@ -346,14 +375,7 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDeliverySteps() {
-    final steps = [
-      'Pesanan diterima oleh restoran',
-      'Sedang disiapkan',
-      'Telah dijemput porter',
-      'Segera tiba',
-    ];
-
+  Widget _buildDeliverySteps(PorterResult porter) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -366,19 +388,22 @@ class PorterFoundPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ...steps.map((step) => _buildProgressStep(step)).toList(),
+        ...porter.status.map((step) => _buildProgressStep(step)).toList(),
       ],
     );
   }
 
-  Widget _buildRateButton(BuildContext context) {
+  Widget _buildRateButton(BuildContext context, PorterResult porter) {
     return Center(
       child: ElevatedButton(
-        onPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const RatingPage()),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RatingPage(orderId: porter.orderId),
             ),
+          );
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF7A00),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -435,21 +460,26 @@ class PorterFoundPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressStep(String text) {
+  Widget _buildProgressStep(OrderStatus step) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Icon(
-            Icons.radio_button_checked,
-            color: Colors.orange,
+          Icon(
+            step.key ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: step.key ? Colors.green : Colors.grey,
             size: 20,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              text,
-              style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
+              step.label,
+              style: TextStyle(
+                fontSize: 16,
+                fontFamily: 'Sen',
+                color: step.key ? Colors.black : Colors.grey,
+                fontWeight: step.key ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
           ),
         ],
@@ -465,13 +495,14 @@ class PorterFoundPage extends StatelessWidget {
   }
 
   String _getPorterPhoto(String name) {
-    if (name.contains('Jovan')) return 'assets/porter1.png';
-    return 'assets/default_porter.jpg';
+    return 'assets/porter1.png';
   }
 }
 
 class RatingPage extends StatefulWidget {
-  const RatingPage({super.key});
+  final int orderId;
+
+  const RatingPage({Key? key, required this.orderId}) : super(key: key);
 
   @override
   State<RatingPage> createState() => _RatingPageState();
@@ -480,6 +511,40 @@ class RatingPage extends StatefulWidget {
 class _RatingPageState extends State<RatingPage> {
   int _selectedStars = 5;
   final TextEditingController _controller = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _submitRating() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await CartService.ratePorter(
+        orderId: widget.orderId,
+        rating: _selectedStars,
+        review: _controller.text,
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result['message'])));
+
+      if (result['success']) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainPage()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -553,11 +618,7 @@ class _RatingPageState extends State<RatingPage> {
               ),
               const SizedBox(height: 30),
               ElevatedButton(
-                onPressed:
-                    () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainPage()),
-                    ),
+                onPressed: _isLoading ? null : _submitRating,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF7A00),
                   padding: const EdgeInsets.symmetric(
@@ -568,14 +629,17 @@ class _RatingPageState extends State<RatingPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Back To Home',
-                  style: TextStyle(
-                    fontFamily: 'Sen',
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
+                child:
+                    _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                          'Submit & Back To Home',
+                          style: TextStyle(
+                            fontFamily: 'Sen',
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
               ),
             ],
           ),

@@ -23,7 +23,7 @@ class HistoryService {
     return data.map<Order>((orderJson) {
       return Order(
         date: orderJson['order_date'] ?? '',
-        porter: orderJson['porter_name'] ?? '-',
+        porter: orderJson['porter']['name'] ?? '-',
         id: orderJson['order_id']?.toString() ?? '-',
         grandTotal: orderJson['grand_total'] ?? 0,
         items:

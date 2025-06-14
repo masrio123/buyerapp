@@ -113,6 +113,32 @@ class CartService {
     }
   }
 
+  static Future<Map<String, dynamic>> cancelOrder(int cartId) async {
+    print("🛒 Melakukan pembatalan checkout untuk cart_id: $cartId");
+
+    final token = await getToken();
+
+    final response = await http.post(
+      Uri.parse('$baseURL/orders/cancel/$cartId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print("✅ Cancel berhasil");
+      return jsonDecode(response.body);
+    } else {
+      final errorMessage = jsonDecode(response.body);
+      print(
+        "❌ Gagal Batalkan Cart: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
+      );
+      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+    }
+  }
+
   static Future<PorterResult> searchPorter(int orderId) async {
     final token = await getToken();
     final response = await http.get(

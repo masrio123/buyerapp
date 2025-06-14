@@ -23,8 +23,12 @@ class HistoryService {
     return data.map<Order>((orderJson) {
       return Order(
         date: orderJson['order_date'] ?? '',
-        porter: orderJson['porter']['name'] ?? '-',
+        porter:
+            orderJson['porter'] != null
+                ? orderJson['porter']['name']
+                : 'Belum Ada Porter',
         id: orderJson['order_id']?.toString() ?? '-',
+        order_status: orderJson['order_status'],
         grandTotal: orderJson['grand_total'] ?? 0,
         items:
             (orderJson['items'] as List<dynamic>).map<RestaurantOrder>((

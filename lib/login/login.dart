@@ -89,15 +89,6 @@ class _LoginPageState extends State<LoginPage> {
                   child: Image.asset('assets/logo.png', fit: BoxFit.contain),
                 ),
 
-                const Text(
-                  'MERCHANT APP',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Sen',
-                  ),
-                ),
-
                 const SizedBox(height: 30),
 
                 // Login Form Container

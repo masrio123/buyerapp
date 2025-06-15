@@ -6,7 +6,7 @@ import 'main_pages.dart';
 import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 
 class ActivityPages extends StatefulWidget {
-  const ActivityPages({super.key});
+  const ActivityPages({Key? key}) : super(key: key);
 
   @override
   State<ActivityPages> createState() => _ActivityPagesState();
@@ -79,13 +79,9 @@ class _ActivityPagesState extends State<ActivityPages> {
                       ],
                     ),
                     onTap: () {
-<<<<<<< HEAD
-                      if (int.tryParse(order.id) != null) {
-=======
                       if (order.id != null &&
                           int.tryParse(order.id) != null &&
                           order.order_status != 'canceled') {
->>>>>>> de773b376a39c302007286333125dbcfe06babfa
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(

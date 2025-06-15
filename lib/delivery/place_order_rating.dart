@@ -78,12 +78,12 @@ class SearchingPorterPage extends StatefulWidget {
   final int total;
 
   const SearchingPorterPage({
-    super.key,
+    Key? key,
     required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
-  });
+  }) : super(key: key);
 
   @override
   State<SearchingPorterPage> createState() => _SearchingPorterPageState();
@@ -152,7 +152,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
         _controller.stop();
       }
       _controller.dispose();
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('Dispose error: $e');
     }
 
@@ -216,12 +216,12 @@ class PorterFoundPage extends StatefulWidget {
   final int total;
 
   const PorterFoundPage({
-    super.key,
+    Key? key,
     required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
-  });
+  }) : super(key: key);
 
   @override
   State<PorterFoundPage> createState() => _PorterFoundPageState();
@@ -297,18 +297,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           },
         ),
       ),
-<<<<<<< HEAD
-      body: FutureBuilder<PorterResult>(
-        future: _porterFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('❌ Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData) {
-            return const Center(child: Text('Porter tidak ditemukan.'));
-          }
-=======
       body:
           _porterCancelled
               ? _buildPorterCancelledWidget()
@@ -323,7 +311,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                       snapshot.data!.porterName == null) {
                     return const Center(child: Text('Porter tidak ditemukan.'));
                   }
->>>>>>> de773b376a39c302007286333125dbcfe06babfa
 
                   final porter = snapshot.data!;
                   return Padding(
@@ -483,7 +470,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           ),
         ),
         const SizedBox(height: 10),
-        ...porter.status.map((step) => _buildProgressStep(step)),
+        ...porter.status.map((step) => _buildProgressStep(step)).toList(),
       ],
     );
   }
@@ -590,14 +577,14 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   String _getPorterPhoto(String name) {
-    return 'assets/porter.png';
+    return 'assets/porter1.png';
   }
 }
 
 class RatingPage extends StatefulWidget {
   final int orderId;
 
-  const RatingPage({super.key, required this.orderId});
+  const RatingPage({Key? key, required this.orderId}) : super(key: key);
 
   @override
   State<RatingPage> createState() => _RatingPageState();

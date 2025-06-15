@@ -41,6 +41,7 @@ class _KantinGedungWState extends State<KantinGedungW> {
         _vendors = tenants;
         _isLoading = false;
       });
+      print("success fecth tenant");
     } catch (e) {
       print('Error fetching tenants: $e');
       setState(() => _isLoading = false);
@@ -112,7 +113,7 @@ class _KantinGedungWState extends State<KantinGedungW> {
                               builder:
                                   (_) => VendorMenuGedungWPage(
                                     vendorName: tenant.name,
-                                    vendorId: tenant.id,
+                                    vendorId: tenant.tenantLocationId,
                                     cart: widget.cart,
                                     onCartUpdated: widget.onCartUpdated,
                                   ),

@@ -12,6 +12,8 @@ class ProductService {
 
   static Future<Map<String, Map<String, List<Map<String, dynamic>>>>>
   fetchKantinMenu(int locationID) async {
+    print("get data tenant by location tenant $locationID");
+
     final token = await getToken();
     final response = await http.get(
       Uri.parse('$baseURL/products/$locationID/tenants-products'),

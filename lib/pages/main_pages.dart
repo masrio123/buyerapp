@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:petraporter_buyer/pages/activity_pages.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_p.dart';
-import 'package:petraporter_buyer/kantin/kantin_gedung_q.dart';
-import 'package:petraporter_buyer/kantin/kantin_gedung_t.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_w.dart';
 import '/login/login.dart';
 import 'account_pages.dart';
@@ -282,8 +280,7 @@ class _MainPageState extends State<MainPage> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: 0.65,
-                                physics: const NeverScrollableScrollPhysics(),
+                                childAspectRatio: 1,
                                 children:
                                     _locations.map((loc) {
                                       return _buildKantinCard(

@@ -13,12 +13,12 @@ class KantinGedungW extends StatefulWidget {
   final VoidCallback onCartUpdated;
 
   const KantinGedungW({
-    Key? key,
+    super.key,
     required this.vendorId,
     required this.vendorName,
     required this.cart,
     required this.onCartUpdated,
-  }) : super(key: key);
+  });
 
   @override
   State<KantinGedungW> createState() => _KantinGedungWState();
@@ -186,12 +186,12 @@ class VendorMenuGedungWPage extends StatefulWidget {
   final VoidCallback onCartUpdated;
 
   const VendorMenuGedungWPage({
-    Key? key,
+    super.key,
     required this.vendorName,
     required this.vendorId,
     required this.cart,
     required this.onCartUpdated,
-  }) : super(key: key);
+  });
 
   @override
   State<VendorMenuGedungWPage> createState() => _VendorMenuGedungWPageState();

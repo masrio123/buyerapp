@@ -7,14 +7,22 @@ class KantinGedungQ extends StatefulWidget {
   final CartModel cart;
   final VoidCallback onCartUpdated;
 
-  const KantinGedungQ({Key? key, required this.cart, required this.onCartUpdated}) : super(key: key);
+  const KantinGedungQ({
+    super.key,
+    required this.cart,
+    required this.onCartUpdated,
+  });
 
   @override
   State<KantinGedungQ> createState() => _KantinGedungQState();
 }
 
 class _KantinGedungQState extends State<KantinGedungQ> {
-  static const List<String> _vendors = ['Ndokee Express', 'Depot Mapan', 'Depot Kita'];
+  static const List<String> _vendors = [
+    'Ndokee Express',
+    'Depot Mapan',
+    'Depot Kita',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -37,16 +45,16 @@ class _KantinGedungQState extends State<KantinGedungQ> {
                   const SizedBox(width: 35),
                   const Text(
                     'Kantin Gedung Q',
-                    style: TextStyle(fontFamily: 'Sen', fontSize: 28, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: 'Sen',
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              Container(
-                height: 4,
-                width: 350,
-                color: const Color(0xFFFF7622),
-              ),
+              Container(height: 4, width: 350, color: const Color(0xFFFF7622)),
               const SizedBox(height: 30),
               // List Vendor
               Expanded(
@@ -60,11 +68,12 @@ class _KantinGedungQState extends State<KantinGedungQ> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => VendorMenuGedungQPage(
-                              vendorName: name,
-                              cart: widget.cart,
-                              onCartUpdated: widget.onCartUpdated,
-                            ),
+                            builder:
+                                (_) => VendorMenuGedungQPage(
+                                  vendorName: name,
+                                  cart: widget.cart,
+                                  onCartUpdated: widget.onCartUpdated,
+                                ),
                           ),
                         );
                       },
@@ -82,7 +91,11 @@ class _KantinGedungQState extends State<KantinGedungQ> {
                           const SizedBox(width: 20),
                           Text(
                             name,
-                            style: const TextStyle(fontFamily: 'Sen', fontSize: 22, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontFamily: 'Sen',
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -105,10 +118,11 @@ class _KantinGedungQState extends State<KantinGedungQ> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MyCartPage(
-                  cart: widget.cart,
-                  onClear: widget.onCartUpdated,
-                ),
+                builder:
+                    (_) => MyCartPage(
+                      cart: widget.cart,
+                      onClear: widget.onCartUpdated,
+                    ),
               ),
             );
           },
@@ -127,18 +141,19 @@ class VendorMenuGedungQPage extends StatefulWidget {
   final VoidCallback onCartUpdated;
 
   const VendorMenuGedungQPage({
-    Key? key,
+    super.key,
     required this.vendorName,
     required this.cart,
     required this.onCartUpdated,
-  }) : super(key: key);
+  });
 
   @override
   State<VendorMenuGedungQPage> createState() => _VendorMenuGedungQPageState();
 }
 
 class _VendorMenuGedungQPageState extends State<VendorMenuGedungQPage> {
-  static final Map<String, Map<String, List<Map<String, dynamic>>>> kantinGedungQMenu = {
+  static final Map<String, Map<String, List<Map<String, dynamic>>>>
+  kantinGedungQMenu = {
     'Ndokee Express': {
       'Nasi Goreng': [
         {'name': 'Nasi Goreng Sosis', 'price': 30000},
@@ -185,17 +200,17 @@ class _VendorMenuGedungQPageState extends State<VendorMenuGedungQPage> {
                 const SizedBox(width: 15),
                 Text(
                   widget.vendorName,
-                  style: const TextStyle(fontFamily: 'Sen', fontSize: 28, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontFamily: 'Sen',
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             // Strip Orange
             const SizedBox(height: 10),
-            Container(
-              height: 4,
-              width: 350,
-              color: const Color(0xFFFF7622),
-            ),
+            Container(height: 4, width: 350, color: const Color(0xFFFF7622)),
             const SizedBox(height: 30),
             // Menu List
             Expanded(
@@ -212,43 +227,111 @@ class _VendorMenuGedungQPageState extends State<VendorMenuGedungQPage> {
                       children: [
                         Text(
                           categoryName,
-                          style: const TextStyle(fontFamily: 'Sen', fontSize: 20, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontFamily: 'Sen',
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 10),
-                        ...menus.map((menu) => Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                            title: Text(menu['name'], style: const TextStyle(fontFamily: 'Sen', fontSize: 18)),
-                            trailing: Text('Rp${menu['price']! ~/ 1000},000', style: const TextStyle(fontFamily: 'Sen', fontSize: 16, fontWeight: FontWeight.bold)),
-                            leading: GestureDetector(
-                              onTap: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    title: const Text('Tambah ke Keranjang?', style: TextStyle(fontFamily: 'Sen')),
-                                    content: Text(menu['name'], style: const TextStyle(fontFamily: 'Sen', fontSize: 18, fontWeight: FontWeight.bold)),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal', style: TextStyle(fontFamily: 'Sen'))),
-                                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ya', style: TextStyle(fontFamily: 'Sen'))),
-                                    ],
+                        ...menus.map(
+                          (menu) => Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                                vertical: 10,
+                              ),
+                              title: Text(
+                                menu['name'],
+                                style: const TextStyle(
+                                  fontFamily: 'Sen',
+                                  fontSize: 18,
+                                ),
+                              ),
+                              trailing: Text(
+                                'Rp${menu['price']! ~/ 1000},000',
+                                style: const TextStyle(
+                                  fontFamily: 'Sen',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              leading: GestureDetector(
+                                onTap: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder:
+                                        (_) => AlertDialog(
+                                          title: const Text(
+                                            'Tambah ke Keranjang?',
+                                            style: TextStyle(fontFamily: 'Sen'),
+                                          ),
+                                          content: Text(
+                                            menu['name'],
+                                            style: const TextStyle(
+                                              fontFamily: 'Sen',
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed:
+                                                  () => Navigator.pop(
+                                                    context,
+                                                    false,
+                                                  ),
+                                              child: const Text(
+                                                'Batal',
+                                                style: TextStyle(
+                                                  fontFamily: 'Sen',
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed:
+                                                  () => Navigator.pop(
+                                                    context,
+                                                    true,
+                                                  ),
+                                              child: const Text(
+                                                'Ya',
+                                                style: TextStyle(
+                                                  fontFamily: 'Sen',
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                  );
+                                  if (confirm == true) {
+                                    widget.cart.addItem(
+                                      widget.vendorName,
+                                      menu,
+                                    );
+                                    widget.onCartUpdated();
+                                  }
+                                },
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.black,
+                                      width: 1.5,
+                                    ),
                                   ),
-                                );
-                                if (confirm == true) {
-                                  widget.cart.addItem(widget.vendorName, menu);
-                                  widget.onCartUpdated();
-                                }
-                              },
-                              child: Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 1.5)),
-                                child: const Icon(Icons.add, size: 18),
+                                  child: const Icon(Icons.add, size: 18),
+                                ),
                               ),
                             ),
                           ),
-                        )).toList(),
+                        ),
                       ],
                     ),
                   );
@@ -269,10 +352,11 @@ class _VendorMenuGedungQPageState extends State<VendorMenuGedungQPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MyCartPage(
-                  cart: widget.cart,
-                  onClear: widget.onCartUpdated,
-                ),
+                builder:
+                    (_) => MyCartPage(
+                      cart: widget.cart,
+                      onClear: widget.onCartUpdated,
+                    ),
               ),
             );
           },

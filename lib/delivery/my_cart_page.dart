@@ -7,8 +7,7 @@ class MyCartPage extends StatefulWidget {
   final CartModel cart;
   final VoidCallback onClear;
 
-  const MyCartPage({Key? key, required this.cart, required this.onClear})
-    : super(key: key);
+  const MyCartPage({super.key, required this.cart, required this.onClear});
 
   @override
   State<MyCartPage> createState() => _MyCartPageState();
@@ -60,7 +59,7 @@ class _MyCartPageState extends State<MyCartPage> {
         print("📦 Menambahkan item dari vendor $vendor: ${items.length} item");
 
         for (var item in items) {
-          await CartService.addToCart(cartId!, item['id'], 1);
+          await CartService.addToCart(cartId, item['id'], 1);
           print("🛒 Ditambahkan: ${item['name']} (ID: ${item['id']})");
         }
       }
@@ -70,7 +69,7 @@ class _MyCartPageState extends State<MyCartPage> {
     }
 
     try {
-      await CartService.checkoutCart(cartId!);
+      await CartService.checkoutCart(cartId);
       widget.cart.clear();
       Navigator.push(
         context,
@@ -208,7 +207,7 @@ class _MyCartPageState extends State<MyCartPage> {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   ),

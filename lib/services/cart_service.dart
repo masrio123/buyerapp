@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constant/constant.dart';
 import '../models/porter.dart';
+import '../models/delivery.dart';
 
 class CartService {
   static Future<String?> getToken() async {
@@ -20,7 +21,7 @@ class CartService {
     return prefs.getInt('selected_location_id') ?? 1;
   }
 
-  static Future<Map<String, dynamic>> createCart() async {
+  static Future<Map<String, dynamic>> createCart(int deliveriy_id) async {
     final token = await getToken();
     final customer_id = await customerID();
     final tenantLocationId = await getLocationId();
@@ -41,6 +42,7 @@ class CartService {
       body: jsonEncode({
         'customer_id': customer_id,
         'tenant_location_id': tenantLocationId,
+        'delivery_id': deliveriy_id,
       }),
     );
 
@@ -156,6 +158,28 @@ class CartService {
         "❌ Gagal mendapatkan porter: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
       );
       throw Exception('Gagal mengambil data porter');
+    }
+  }
+
+  static Future<List<DeliveryPoint>> getDeliveryPoints() async {
+    final token = await getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseURL/delivery-points'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      final List<dynamic> data = jsonData['data'];
+
+      print("✅ Berhasil mengambil delivery points: ${data.length} lokasi");
+
+      return data.map((item) => DeliveryPoint.fromJson(item)).toList();
+    } else {
+      final error = jsonDecode(response.body);
+      print("❌ Gagal mengambil delivery points: ${error['message']}");
+      throw Exception('Gagal mengambil delivery points');
     }
   }
 

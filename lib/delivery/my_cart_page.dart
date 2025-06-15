@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 import 'package:petraporter_buyer/kantin/kantin_gedung_p.dart';
 import '../services/cart_service.dart';
+import '../models/delivery.dart';
 
 class MyCartPage extends StatefulWidget {
   final CartModel cart;
@@ -41,21 +42,81 @@ class _MyCartPageState extends State<MyCartPage> {
   void _buatKeranjang() async {
     int cartId;
 
+    // Ambil daftar titik pengantaran
+    List<DeliveryPoint> deliveryPoints = [];
     try {
-      final result = await CartService.createCart();
-      cartId = result['cart']['id'];
+      deliveryPoints = await CartService.getDeliveryPoints();
+    } catch (e) {
+      print('❌ Gagal mengambil delivery point: $e');
+      _showErrorDialog('Gagal mengambil lokasi pengiriman');
+      return;
+    }
 
+    DeliveryPoint? selectedPoint;
+
+    // Tampilkan modal untuk memilih lokasi
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Pilih Lokasi Pengantaran',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+                  ...deliveryPoints.map((point) {
+                    return RadioListTile<DeliveryPoint>(
+                      title: Text(point.name),
+                      value: point,
+                      groupValue: selectedPoint,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedPoint = value!;
+                        });
+                      },
+                    );
+                  }).toList(),
+                  SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed:
+                        selectedPoint != null
+                            ? () => Navigator.pop(context)
+                            : null,
+                    child: Text("Konfirmasi Lokasi"),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedPoint == null) {
+      print('🚫 Pengguna membatalkan pemilihan lokasi');
+      return;
+    }
+
+    try {
+      final result = await CartService.createCart(selectedPoint!.id);
+      cartId = result['cart']['id'];
       print('✅ Keranjang berhasil dibuat: ID = $cartId');
     } catch (e) {
       print('❌ Gagal membuat keranjang: $e');
       _showErrorDialog('Gagal membuat keranjang: $e');
-      return; // berhenti jika gagal buat keranjang
+      return;
     }
 
     try {
       for (var vendor in widget.cart.vendors) {
         final items = widget.cart.itemsOf(vendor);
-
         print("📦 Menambahkan item dari vendor $vendor: ${items.length} item");
 
         for (var item in items) {
@@ -69,7 +130,7 @@ class _MyCartPageState extends State<MyCartPage> {
     }
 
     try {
-      await CartService.checkoutCart(cartId);
+      await CartService.checkoutCart(cartId); // <- kirim ID lokasi
       widget.cart.clear();
       Navigator.push(
         context,

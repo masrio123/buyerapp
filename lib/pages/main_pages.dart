@@ -280,8 +280,7 @@ class _MainPageState extends State<MainPage> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: 0.65,
-                                physics: const NeverScrollableScrollPhysics(),
+                                childAspectRatio: 1,
                                 children:
                                     _locations.map((loc) {
                                       return _buildKantinCard(

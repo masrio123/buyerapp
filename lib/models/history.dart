@@ -2,6 +2,7 @@ class Order {
   final String date;
   final String porter;
   final String id;
+  final String order_status;
   final int grandTotal;
   final List<RestaurantOrder> items;
 
@@ -9,6 +10,7 @@ class Order {
     required this.date,
     required this.porter,
     required this.id,
+    required this.order_status,
     required this.grandTotal,
     required this.items,
   });
@@ -18,6 +20,7 @@ class Order {
       date: json['order_date'] ?? '',
       porter: json['porter_name'] ?? '-',
       id: json['order_id']?.toString() ?? '-',
+      order_status: json['order_status'],
       grandTotal: json['grand_total'] ?? 0, // ← Tambahkan baris ini
       items:
           (json['items'] as List<dynamic>).map<RestaurantOrder>((tenantJson) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/login/login.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
@@ -32,6 +34,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      navigatorKey: navigatorKey,
       home: const LoginPage(),
     );
   }

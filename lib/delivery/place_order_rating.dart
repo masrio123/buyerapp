@@ -228,35 +228,50 @@ class PorterFoundPage extends StatefulWidget {
 }
 
 class _PorterFoundPageState extends State<PorterFoundPage> {
-  late Future<PorterResult> _porterFuture;
+  late Future<PorterResult?> _porterFuture;
+  bool _porterCancelled = false;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _porterFuture = _fetchPorter();
-
-    _timer = Timer.periodic(Duration(seconds: 15), (timer) {
-      setState(() {
-        _porterFuture = _fetchPorter();
-      });
-    });
-  }
-
-  Future<PorterResult> _fetchPorter() {
-    return CartService.searchPorter(widget.orderId);
+    _startFetchingPorter();
+    _timer = Timer.periodic(
+      Duration(seconds: 15),
+      (_) => _startFetchingPorter(),
+    );
   }
 
   @override
   void dispose() {
-    try {
-      _timer?.cancel();
-    } catch (e, stackTrace) {
-      debugPrint('Error saat dispose: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    } finally {
-      super.dispose();
-    }
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<PorterResult?> _fetchPorter() {
+    return CartService.searchPorter(widget.orderId);
+  }
+
+  void _startFetchingPorter() {
+    setState(() {
+      _porterFuture = _fetchPorter();
+    });
+
+    _porterFuture
+        .then((result) {
+          if (!mounted) return;
+          if (result == null || result.porterName == null) {
+            setState(() {
+              _porterCancelled = true;
+            });
+          }
+        })
+        .catchError((_) {
+          if (!mounted) return;
+          setState(() {
+            _porterCancelled = true;
+          });
+        });
   }
 
   @override
@@ -277,11 +292,12 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const MainPage()),
-              (route) => false, // Hapus semua halaman sebelumnya
+              (route) => false,
             );
           },
         ),
       ),
+<<<<<<< HEAD
       body: FutureBuilder<PorterResult>(
         future: _porterFuture,
         builder: (context, snapshot) {
@@ -292,25 +308,104 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           } else if (!snapshot.hasData) {
             return const Center(child: Text('Porter tidak ditemukan.'));
           }
+=======
+      body:
+          _porterCancelled
+              ? _buildPorterCancelledWidget()
+              : FutureBuilder<PorterResult?>(
+                future: _porterFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('❌ Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData ||
+                      snapshot.data!.porterName == null) {
+                    return const Center(child: Text('Porter tidak ditemukan.'));
+                  }
+>>>>>>> de773b376a39c302007286333125dbcfe06babfa
 
-          final porter = snapshot.data!;
+                  final porter = snapshot.data!;
+                  return Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPorterInfo(porter),
+                        const Divider(height: 30),
+                        _buildPaymentSection(porter),
+                        const SizedBox(height: 30),
+                        _buildDeliverySteps(porter),
+                        const SizedBox(height: 30),
+                        _buildRateButton(context, porter),
+                      ],
+                    ),
+                  );
+                },
+              ),
+    );
+  }
 
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPorterInfo(porter),
-                const Divider(height: 30),
-                _buildPaymentSection(porter),
-                const SizedBox(height: 30),
-                _buildDeliverySteps(porter),
-                const SizedBox(height: 30),
-                _buildRateButton(context, porter),
-              ],
-            ),
-          );
-        },
+  // ✅ Widget internal untuk info cancel porter
+  Widget _buildPorterCancelledWidget() {
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Order Dibatalkan",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Porter membatalkan orderan ini. Apa yang ingin Anda lakukan?",
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _porterCancelled = false;
+                      });
+                      _startFetchingPorter();
+                    },
+                    child: const Text("Cari Porter Baru"),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      try {
+                        await CartService.cancelOrder(widget.orderId);
+                        if (!mounted) return;
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const MainPage()),
+                          (route) => false,
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Gagal membatalkan order: $e"),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text(
+                      "Batalkan Order",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

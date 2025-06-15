@@ -79,7 +79,13 @@ class _ActivityPagesState extends State<ActivityPages> {
                       ],
                     ),
                     onTap: () {
+<<<<<<< HEAD
                       if (int.tryParse(order.id) != null) {
+=======
+                      if (order.id != null &&
+                          int.tryParse(order.id) != null &&
+                          order.order_status != 'canceled') {
+>>>>>>> de773b376a39c302007286333125dbcfe06babfa
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -93,9 +99,20 @@ class _ActivityPagesState extends State<ActivityPages> {
                           ),
                         );
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Order ID tidak valid')),
-                        );
+                        if (order.id == null &&
+                            int.tryParse(order.id) == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Order ID tidak valid'),
+                            ),
+                          );
+                        } else if (order.order_status == 'canceled') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Order Telah dibatalkan'),
+                            ),
+                          );
+                        }
                       }
                     },
                     trailing: ElevatedButton(

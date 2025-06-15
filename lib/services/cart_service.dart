@@ -22,12 +22,12 @@ class CartService {
 
   static Future<Map<String, dynamic>> createCart() async {
     final token = await getToken();
-    final customer_id = await customerID();
+    final customerId = await customerID();
     final tenantLocationId = await getLocationId();
 
-    print('user_id : $customer_id dan location_id : $tenantLocationId');
+    print('user_id : $customerId dan location_id : $tenantLocationId');
 
-    if (token == null || customer_id == null) {
+    if (token == null || customerId == null) {
       throw Exception('Token or user ID not found');
     }
 
@@ -39,7 +39,7 @@ class CartService {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'customer_id': customer_id,
+        'customer_id': customerId,
         'tenant_location_id': tenantLocationId,
       }),
     );
@@ -48,7 +48,7 @@ class CartService {
       final data = jsonDecode(response.body);
       return {'message': data['message'], 'cart': data['cart']};
     } else {
-      throw Exception('${response.body}');
+      throw Exception(response.body);
     }
   }
 

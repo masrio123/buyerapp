@@ -78,12 +78,12 @@ class SearchingPorterPage extends StatefulWidget {
   final int total;
 
   const SearchingPorterPage({
-    Key? key,
+    super.key,
     required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
-  }) : super(key: key);
+  });
 
   @override
   State<SearchingPorterPage> createState() => _SearchingPorterPageState();
@@ -152,7 +152,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
         _controller.stop();
       }
       _controller.dispose();
-    } catch (e, stack) {
+    } catch (e) {
       debugPrint('Dispose error: $e');
     }
 
@@ -216,12 +216,12 @@ class PorterFoundPage extends StatefulWidget {
   final int total;
 
   const PorterFoundPage({
-    Key? key,
+    super.key,
     required this.orderId,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
-  }) : super(key: key);
+  });
 
   @override
   State<PorterFoundPage> createState() => _PorterFoundPageState();
@@ -289,7 +289,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('❌ Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data! == null) {
+          } else if (!snapshot.hasData) {
             return const Center(child: Text('Porter tidak ditemukan.'));
           }
 
@@ -388,7 +388,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           ),
         ),
         const SizedBox(height: 10),
-        ...porter.status.map((step) => _buildProgressStep(step)).toList(),
+        ...porter.status.map((step) => _buildProgressStep(step)),
       ],
     );
   }
@@ -495,14 +495,14 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   String _getPorterPhoto(String name) {
-    return 'assets/porter1.png';
+    return 'assets/porter.png';
   }
 }
 
 class RatingPage extends StatefulWidget {
   final int orderId;
 
-  const RatingPage({Key? key, required this.orderId}) : super(key: key);
+  const RatingPage({super.key, required this.orderId});
 
   @override
   State<RatingPage> createState() => _RatingPageState();

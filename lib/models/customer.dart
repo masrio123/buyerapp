@@ -32,6 +32,7 @@ class BankUser {
 class Customer {
   final int id;
   final String customerName;
+  final String identityNumber;
   final int userId;
   final Department department;
   final BankUser bankUser;
@@ -39,6 +40,7 @@ class Customer {
   Customer({
     required this.id,
     required this.customerName,
+    required this.identityNumber,
     required this.userId,
     required this.department,
     required this.bankUser,
@@ -48,6 +50,7 @@ class Customer {
     return Customer(
       id: json['id'],
       customerName: json['customer_name'],
+      identityNumber: json['identity_number'],
       userId: json['user_id'],
       department: Department.fromJson(json['department']),
       bankUser: BankUser.fromJson(json['bank_user']),

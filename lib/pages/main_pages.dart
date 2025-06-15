@@ -207,10 +207,10 @@ class _MainPageState extends State<MainPage> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: 50,
+                        Image.asset(
+                          'assets/cart.png', // pastikan path dan nama file benar
+                          width: 45,
+                          height: 45,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -218,7 +218,7 @@ class _MainPageState extends State<MainPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'LOKASI PENGIRIMAN',
+                                'CART TENANT',
                                 style: TextStyle(
                                   fontSize: 20,
                                   color: Colors.black54,

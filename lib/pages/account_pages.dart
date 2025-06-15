@@ -63,13 +63,9 @@ class _ProfilePageState extends State<ProfilePage> {
               // Header
               Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
                   const Text(
                     "My Profile",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -80,7 +76,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   const CircleAvatar(
                     radius: 36,
-                    backgroundImage: AssetImage('assets/customer.png'),
+                    backgroundImage: AssetImage('assets/avatar.png'),
                   ),
                   const SizedBox(width: 16),
                   Column(
@@ -94,7 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       const Text(
-                        'Porter',
+                        'Customer',
                         style: TextStyle(fontSize: 14, color: Colors.grey),
                       ),
                     ],
@@ -104,12 +100,14 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 24),
 
               ProfileItem(
-                label: "Jurusan",
+                label: "Identity Number",
+                value: _customer!.identityNumber,
+              ),
+
+              ProfileItem(
+                label: "Departemen",
                 value: _customer!.department.departmentName,
               ),
-              const ProfileItem(label: "Angkatan", value: "2021"),
-              const ProfileItem(label: "NRP", value: "c14290001"),
-              const RatingItem(rating: 5.0),
               ProfileItem(
                 label: "Nomor Rekening",
                 value: _customer!.bankUser.accountNumber,

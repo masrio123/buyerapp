@@ -15,7 +15,6 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-// --- BATAS CLASS STATE DIMULAI DI SINI ---
 class _MainPageState extends State<MainPage> {
   int? _selectedLocationId;
   List<TenantLocation> _locations = [];
@@ -141,6 +140,26 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  /// Menampilkan dialog peringatan jika pengguna mencoba mengakses lokasi yang salah.
+  void _showLocationSelectionRequiredDialog(String requiredLocation) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Akses Ditolak"),
+            content: Text(
+              "Untuk mengakses kantin ini, silakan ubah lokasi Anda menjadi '$requiredLocation' terlebih dahulu di bagian atas.",
+            ),
+            actions: [
+              TextButton(
+                child: const Text("Mengerti"),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,7 +228,7 @@ class _MainPageState extends State<MainPage> {
                   style: TextStyle(fontSize: 25),
                   children: [
                     TextSpan(
-                      text: 'Selamat Siang!',
+                      text: 'Selamat Datang!',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -251,23 +270,33 @@ class _MainPageState extends State<MainPage> {
   }
 
   /// Membangun kartu untuk setiap kantin.
-  /// Method ini berada di dalam _MainPageState, sehingga bisa mengakses _cart.
+  /// Method ini sekarang berisi logika validasi berdasarkan lokasi yang dipilih.
   Widget _buildKantinCard(int id, String title) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => KantinGedungW(
-                  vendorId: id,
-                  vendorName: title,
-                  // Variabel _cart dapat diakses di sini.
-                  cart: _cart,
-                  onCartUpdated: () => setState(() {}),
-                ),
-          ),
-        );
+        // --- LOGIKA VALIDASI BARU DITERAPKAN DI SINI ---
+        // 1. Dapatkan nama lokasi dari judul kartu (e.g., "Gedung W").
+        final tappedLocationName = title.split('\n').last;
+
+        // 2. Bandingkan dengan lokasi yang sedang dipilih di dropdown.
+        if (_selectedLocationName == tappedLocationName) {
+          // 3. Jika sama, lanjutkan ke halaman kantin.
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => KantinGedungW(
+                    vendorId: id,
+                    vendorName: title,
+                    cart: _cart,
+                    onCartUpdated: () => setState(() {}),
+                  ),
+            ),
+          );
+        } else {
+          // 4. Jika berbeda, tampilkan peringatan bahwa lokasi harus diubah.
+          _showLocationSelectionRequiredDialog(tappedLocationName);
+        }
       },
       child: Container(
         decoration: BoxDecoration(

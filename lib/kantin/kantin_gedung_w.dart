@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/delivery/my_cart_page.dart';
 import 'package:petraporter_buyer/models/product.dart';
 import 'package:petraporter_buyer/services/product_service.dart';
-import 'kantin_gedung_p.dart';
 import '../models/tenant.dart';
 import '../services/home_service.dart';
+import '../models/cart_model.dart';
 
 class KantinGedungW extends StatefulWidget {
   final int vendorId;
@@ -37,17 +37,24 @@ class _KantinGedungWState extends State<KantinGedungW> {
   Future<void> loadVendors() async {
     try {
       final tenants = await HomeService.fetchTenantByLocation(widget.vendorId);
-      setState(() {
-        _vendors = tenants;
-        _isLoading = false;
-      });
-      print("success fecth tenant");
+      // --- PERBAIKAN DI SINI ---
+      // Cek apakah widget masih ada di tree sebelum memanggil setState.
+      if (mounted) {
+        setState(() {
+          _vendors = tenants;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error fetching tenants: $e');
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal memuat vendor: $e')));
+      // --- PERBAIKAN DI SINI ---
+      // Cek juga di blok catch untuk memastikan keamanan.
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat vendor: $e')));
+      }
     }
   }
 
@@ -268,7 +275,6 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Center(child: Text('Menu tidak ditemukan'));
                     }
-
                     final data = snapshot.data!;
                     if (!data.containsKey(widget.vendorName)) {
                       return const Center(
@@ -281,15 +287,12 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
                         ),
                       );
                     }
-
                     final vendorMenus = data[widget.vendorName]!;
-
                     return ListView.builder(
                       itemCount: vendorMenus.length,
                       itemBuilder: (context, index) {
                         final categoryName = vendorMenus.keys.elementAt(index);
                         final menus = vendorMenus[categoryName]!;
-
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 20),
                           child: Column(
@@ -409,7 +412,6 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
                                                           ],
                                                         ),
                                                   );
-
                                                   if (confirm == true) {
                                                     widget.cart.addItem(
                                                       widget.vendorName,

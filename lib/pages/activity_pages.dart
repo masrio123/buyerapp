@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:petraporter_buyer/pages/account_pages.dart';
+import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 import '../services/history_service.dart';
 import '../models/history.dart';
-import 'main_pages.dart';
-import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 
 class ActivityPages extends StatefulWidget {
   const ActivityPages({Key? key}) : super(key: key);
@@ -21,25 +19,34 @@ class _ActivityPagesState extends State<ActivityPages> {
     _futureOrders = HistoryService.fetchCustomerDetail();
   }
 
+  // Fungsi untuk refresh data
+  Future<void> _refreshOrders() async {
+    setState(() {
+      _futureOrders = HistoryService.fetchCustomerDetail();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        fontFamily: 'Sen',
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'Activity',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+    // --- PERBAIKAN ---
+    // MaterialApp dan BottomNavigationBar dihapus. Sekarang langsung return Scaffold.
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Activity',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
           ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.black),
         ),
-        body: FutureBuilder<List<Order>>(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refreshOrders,
+        child: FutureBuilder<List<Order>>(
           future: _futureOrders,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -82,11 +89,15 @@ class _ActivityPagesState extends State<ActivityPages> {
                       if (order.id != null &&
                           int.tryParse(order.id) != null &&
                           order.order_status != 'canceled') {
-                        Navigator.pushReplacement(
+                        // --- PERBAIKAN ---
+                        // Menggunakan push agar pengguna bisa kembali ke halaman riwayat aktivitas.
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder:
                                 (_) => PorterFoundPage(
+                                  // Sebaiknya data ini juga diambil dari detail order,
+                                  // bukan hardcoded 0.
                                   orderId: int.parse(order.id),
                                   subtotal: 0,
                                   deliveryFee: 0,
@@ -95,20 +106,14 @@ class _ActivityPagesState extends State<ActivityPages> {
                           ),
                         );
                       } else {
-                        if (order.id == null &&
-                            int.tryParse(order.id) == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Order ID tidak valid'),
-                            ),
-                          );
-                        } else if (order.order_status == 'canceled') {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Order Telah dibatalkan'),
-                            ),
-                          );
+                        // Logika untuk menampilkan SnackBar sudah benar.
+                        String message = 'Order ID tidak valid';
+                        if (order.order_status == 'canceled') {
+                          message = 'Order Telah dibatalkan';
                         }
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(message)));
                       }
                     },
                     trailing: ElevatedButton(
@@ -126,7 +131,7 @@ class _ActivityPagesState extends State<ActivityPages> {
                       ),
                       child: const Text(
                         'Details',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 15),
                       ),
                     ),
                   ),
@@ -134,37 +139,6 @@ class _ActivityPagesState extends State<ActivityPages> {
               },
             );
           },
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: 1,
-          onTap: (index) {
-            if (index == 0) {
-              Navigator.push(
-                context,
-                HorizontalSlideRoute(page: const MainPage()),
-              );
-            } else if (index == 2) {
-              Navigator.push(
-                context,
-                HorizontalSlideRoute(page: AccountPages()),
-              );
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFFFF7622),
-          unselectedItemColor: Colors.grey,
-          backgroundColor: Colors.white,
-          iconSize: 35,
-          unselectedFontSize: 15,
-          selectedFontSize: 15,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long),
-              label: 'Activity',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
-          ],
         ),
       ),
     );
@@ -197,82 +171,6 @@ class _ActivityPagesState extends State<ActivityPages> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        "Date: ${order.date.isNotEmpty ? order.date : '-'}\n",
-                      ),
-                      for (final resto in order.items) ...[
-                        Text(
-                          resto.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
-                        for (final item in resto.items)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text('${item.name} x${item.quantity}'),
-                              ),
-                              Text('Rp${item.price}'),
-                            ],
-                          ),
-                        if (resto.note != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              'Catatan: ${resto.note!}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        const Divider(),
-                      ],
-                      const SizedBox(height: 10),
-                      const Text(
-                        "TOTAL PAYMENT",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total Price'),
-                          Text('Rp${order.grandTotal}'),
-                        ],
-                      ),
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [Text('Delivery Fee'), Text('Rp6000')],
-                      ),
-                      const Divider(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'TOTAL',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Rp${order.grandTotal + 6000}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF7622),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('Close'),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -281,28 +179,4 @@ class _ActivityPagesState extends State<ActivityPages> {
           ),
     );
   }
-}
-
-class HorizontalSlideRoute extends PageRouteBuilder {
-  final Widget page;
-
-  HorizontalSlideRoute({required this.page})
-    : super(
-        pageBuilder: (context, animation, secondaryAnimation) => page,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0); // Slide dari kanan
-          const end = Offset.zero;
-          const curve = Curves.ease;
-
-          final tween = Tween(
-            begin: begin,
-            end: end,
-          ).chain(CurveTween(curve: curve));
-
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-      );
 }

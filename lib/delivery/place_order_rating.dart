@@ -1,30 +1,52 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:petraporter_buyer/models/history.dart';
-import 'package:petraporter_buyer/pages/main_pages.dart';
-import '../services/cart_service.dart';
-import '../models/porter.dart';
-import 'dart:async';
 
-class PlaceOrderRating extends StatelessWidget {
-  const PlaceOrderRating({super.key});
+// Import AppShell untuk memastikan kita bisa kembali ke 'rumah' yang benar.
+import 'package:petraporter_buyer/app_shell.dart';
+// Sesuaikan path import di bawah ini jika diperlukan
+import 'package:petraporter_buyer/models/porter.dart';
+import 'package:petraporter_buyer/models/history.dart';
+import 'package:petraporter_buyer/services/cart_service.dart';
+
+// Halaman ini tidak lagi diperlukan karena logikanya sudah pindah ke halaman keranjang (MyCartPage).
+// Saya tetap sertakan di sini sesuai permintaan, tetapi idealnya ini dihapus
+// dan alurnya dimulai dari MyCartPage.
+class PlaceOrderRating extends StatefulWidget {
+  final int cartId;
+
+  const PlaceOrderRating({super.key, required this.cartId});
+
+  @override
+  State<PlaceOrderRating> createState() => _PlaceOrderRatingState();
+}
+
+class _PlaceOrderRatingState extends State<PlaceOrderRating> {
+  bool _isPlacingOrder = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text("Place Order")),
       body: Center(
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00AA13),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            textStyle: const TextStyle(fontSize: 16),
-          ),
-          onPressed: () => _showConfirmDialog(context),
-          child: const Text('PLACE ORDER', style: TextStyle(fontFamily: 'Sen')),
-        ),
+        child:
+            _isPlacingOrder
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00AA13),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                  onPressed: () => _showConfirmDialog(context),
+                  child: const Text(
+                    'PLACE ORDER',
+                    style: TextStyle(fontFamily: 'Sen'),
+                  ),
+                ),
       ),
     );
   }
@@ -32,6 +54,7 @@ class PlaceOrderRating extends StatelessWidget {
   void _showConfirmDialog(BuildContext context) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder:
           (_) => AlertDialog(
             title: const Text(
@@ -50,18 +73,7 @@ class PlaceOrderRating extends StatelessWidget {
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => const SearchingPorterPage(
-                            orderId: 1,
-                            subtotal: 45000,
-                            deliveryFee: 8000,
-                            total: 53000,
-                          ),
-                    ),
-                  );
+                  _handlePlaceOrder();
                 },
                 child: const Text('Ya', style: TextStyle(fontFamily: 'Sen')),
               ),
@@ -69,8 +81,44 @@ class PlaceOrderRating extends StatelessWidget {
           ),
     );
   }
+
+  Future<void> _handlePlaceOrder() async {
+    setState(() => _isPlacingOrder = true);
+    try {
+      final checkoutResponse = await CartService.checkoutCart(widget.cartId);
+      if (!mounted) return;
+
+      if (checkoutResponse['order'] == null) {
+        throw Exception("Struktur respons checkout tidak valid.");
+      }
+      final orderData = checkoutResponse['order'];
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => SearchingPorterPage(
+                orderId: orderData['id'],
+                subtotal: orderData['subtotal'] ?? 0,
+                deliveryFee: orderData['delivery_fee'] ?? 0,
+                total: orderData['total'] ?? 0,
+              ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal melakukan checkout: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isPlacingOrder = false);
+      }
+    }
+  }
 }
 
+// Halaman 2: Animasi saat mencari porter
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
   final int subtotal;
@@ -93,7 +141,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isError = false;
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -102,25 +149,24 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
-
     _startSearching();
   }
 
-  void _startSearching() async {
-    setState(() {
-      _isError = false;
-      _isLoading = true;
-    });
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
+  void _startSearching() async {
+    setState(() => _isError = false);
     try {
-      final porterFuture = CartService.searchPorter(widget.orderId);
-      final results = await Future.wait([
-        porterFuture,
-        Future.delayed(const Duration(seconds: 4)),
+      await Future.wait([
+        CartService.searchPorter(widget.orderId),
+        Future.delayed(const Duration(seconds: 4)), // UX Delay
       ]);
 
       if (!mounted) return;
-      _controller.dispose();
 
       Navigator.pushReplacement(
         context,
@@ -137,26 +183,9 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     } catch (e) {
       print("gagal mencari porter karena $e");
       if (!mounted) return;
-      _controller.stop(); // stop animasi
-      setState(() {
-        _isError = true;
-        _isLoading = false;
-      });
+      _controller.stop();
+      setState(() => _isError = true);
     }
-  }
-
-  @override
-  void dispose() {
-    try {
-      if (_controller.isAnimating) {
-        _controller.stop();
-      }
-      _controller.dispose();
-    } catch (e, stack) {
-      debugPrint('Dispose error: $e');
-    }
-
-    super.dispose();
   }
 
   @override
@@ -165,7 +194,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
       backgroundColor: Colors.white,
       body: Center(
         child:
-            _isLoading
+            !_isError
                 ? Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -196,7 +225,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () {
-                        _controller.reset();
                         _controller.repeat();
                         _startSearching();
                       },
@@ -209,6 +237,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
   }
 }
 
+// Halaman 3: Detail order setelah porter ditemukan
 class PorterFoundPage extends StatefulWidget {
   final int orderId;
   final int subtotal;
@@ -236,10 +265,11 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   void initState() {
     super.initState();
     _startFetchingPorter();
-    _timer = Timer.periodic(
-      Duration(seconds: 15),
-      (_) => _startFetchingPorter(),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted && !_porterCancelled) {
+        _startFetchingPorter();
+      }
+    });
   }
 
   @override
@@ -248,30 +278,11 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     super.dispose();
   }
 
-  Future<PorterResult?> _fetchPorter() {
-    return CartService.searchPorter(widget.orderId);
-  }
-
   void _startFetchingPorter() {
+    if (!mounted) return;
     setState(() {
-      _porterFuture = _fetchPorter();
+      _porterFuture = CartService.searchPorter(widget.orderId);
     });
-
-    _porterFuture
-        .then((result) {
-          if (!mounted) return;
-          if (result == null || result.porterName == null) {
-            setState(() {
-              _porterCancelled = true;
-            });
-          }
-        })
-        .catchError((_) {
-          if (!mounted) return;
-          setState(() {
-            _porterCancelled = true;
-          });
-        });
   }
 
   @override
@@ -287,53 +298,56 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           style: TextStyle(fontFamily: 'Sen', fontSize: 20),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const MainPage()),
+            // --- PERBAIKAN ---
+            // Saat kembali, kita kembali ke 'rumah' (AppShell).
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const AppShell()),
               (route) => false,
             );
           },
         ),
       ),
-      body:
-          _porterCancelled
-              ? _buildPorterCancelledWidget()
-              : FutureBuilder<PorterResult?>(
-                future: _porterFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('❌ Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData ||
-                      snapshot.data!.porterName == null) {
-                    return const Center(child: Text('Porter tidak ditemukan.'));
-                  }
+      body: FutureBuilder<PorterResult?>(
+        future: _porterFuture,
+        builder: (context, snapshot) {
+          if (_porterCancelled) {
+            return _buildPorterCancelledWidget();
+          }
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              snapshot.data == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('❌ Error: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data?.porterName == null) {
+            _porterCancelled = true;
+            return _buildPorterCancelledWidget();
+          }
 
-                  final porter = snapshot.data!;
-                  return Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPorterInfo(porter),
-                        const Divider(height: 30),
-                        _buildPaymentSection(porter),
-                        const SizedBox(height: 30),
-                        _buildDeliverySteps(porter),
-                        const SizedBox(height: 30),
-                        _buildRateButton(context, porter),
-                      ],
-                    ),
-                  );
-                },
-              ),
+          final porter = snapshot.data!;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPorterInfo(porter),
+                const Divider(height: 30),
+                _buildPaymentSection(porter),
+                const SizedBox(height: 30),
+                _buildDeliverySteps(porter),
+                const SizedBox(height: 30),
+                _buildRateButton(context, porter),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
-  // ✅ Widget internal untuk info cancel porter
   Widget _buildPorterCancelledWidget() {
     return Center(
       child: Card(
@@ -358,9 +372,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                 children: [
                   TextButton(
                     onPressed: () {
-                      setState(() {
-                        _porterCancelled = false;
-                      });
+                      setState(() => _porterCancelled = false);
                       _startFetchingPorter();
                     },
                     child: const Text("Cari Porter Baru"),
@@ -371,7 +383,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                         await CartService.cancelOrder(widget.orderId);
                         if (!mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const MainPage()),
+                          MaterialPageRoute(builder: (_) => const AppShell()),
                           (route) => false,
                         );
                       } catch (e) {
@@ -506,17 +518,13 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   Widget _buildPriceRow(String label, dynamic amount, {bool bold = false}) {
-    // Konversi dynamic amount ke int
     int intAmount;
-
     if (amount is int) {
       intAmount = amount;
     } else if (amount is String) {
-      // Parsing string ke double dulu, lalu dibulatkan ke int
-      double? parsed = double.tryParse(amount);
-      intAmount = parsed?.round() ?? 0;
+      intAmount = double.tryParse(amount)?.round() ?? 0;
     } else {
-      intAmount = 0; // default fallback
+      intAmount = 0;
     }
 
     return Row(
@@ -569,23 +577,17 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
-  String _formatCurrency(int amount) {
-    return amount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]}.',
-    );
-  }
-
-  String _getPorterPhoto(String name) {
-    return 'assets/porter1.png';
-  }
+  String _formatCurrency(int amount) => amount.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (m) => '${m[1]}.',
+  );
+  String _getPorterPhoto(String name) => 'assets/porter1.png';
 }
 
+// Halaman 4: Halaman untuk memberi rating
 class RatingPage extends StatefulWidget {
   final int orderId;
-
   const RatingPage({Key? key, required this.orderId}) : super(key: key);
-
   @override
   State<RatingPage> createState() => _RatingPageState();
 }
@@ -596,36 +598,40 @@ class _RatingPageState extends State<RatingPage> {
   bool _isLoading = false;
 
   Future<void> _submitRating() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final result = await CartService.ratePorter(
         orderId: widget.orderId,
         rating: _selectedStars,
         review: _controller.text,
       );
-
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(result['message'])));
 
       if (result['success']) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainPage()),
+        // --- PERBAIKAN ---
+        // Ini adalah akhir dari siklus order. Kembali ke 'rumah' (AppShell).
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AppShell()),
+          (route) => false,
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -633,11 +639,12 @@ class _RatingPageState extends State<RatingPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 135),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 50),
               Image.asset('assets/portericon.png', height: 150),
               const SizedBox(height: 20),
               const Text(
@@ -667,34 +674,29 @@ class _RatingPageState extends State<RatingPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _controller,
-                    maxLines: 5,
-                    minLines: 5,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'Write your review...',
-                      hintStyle: TextStyle(
-                        fontFamily: 'Sen',
-                        fontSize: 14,
-                        color: Colors.black54,
-                      ),
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    style: const TextStyle(
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _controller,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Write your review...',
+                    hintStyle: TextStyle(
                       fontFamily: 'Sen',
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: Colors.black54,
                     ),
+                  ),
+                  style: const TextStyle(
+                    fontFamily: 'Sen',
+                    fontSize: 14,
+                    color: Colors.black87,
                   ),
                 ),
               ),
@@ -713,7 +715,14 @@ class _RatingPageState extends State<RatingPage> {
                 ),
                 child:
                     _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
                         : const Text(
                           'Submit & Back To Home',
                           style: TextStyle(
@@ -723,6 +732,7 @@ class _RatingPageState extends State<RatingPage> {
                           ),
                         ),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

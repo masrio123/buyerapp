@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/delivery/place_order_rating.dart';
-import 'package:petraporter_buyer/kantin/kantin_gedung_p.dart';
+import 'package:petraporter_buyer/kantin/kantin_gedung_w.dart';
 import '../services/cart_service.dart';
 import '../models/delivery.dart';
+import '../models/cart_model.dart';
 
 class MyCartPage extends StatefulWidget {
   final CartModel cart;

@@ -4,18 +4,8 @@ import '../services/customer_service.dart';
 import 'main_pages.dart';
 import 'activity_pages.dart';
 
-class AccountPages extends StatelessWidget {
-  const AccountPages({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const ProfilePage(),
-      theme: ThemeData(fontFamily: 'Sen'),
-    );
-  }
-}
+// Kelas 'AccountPages' yang lama sudah tidak diperlukan dan dihapus.
+// Kita sekarang langsung mengekspor 'ProfilePage' sebagai halaman utama untuk tab ini.
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -34,24 +24,53 @@ class _ProfilePageState extends State<ProfilePage> {
     fetchCustomer();
   }
 
+  /// Mengambil data detail customer dari service.
+  /// Menangani state loading dan error.
   Future<void> fetchCustomer() async {
     try {
       final customer = await CustomerService.fetchCustomerDetail();
-      setState(() {
-        _customer = customer;
-        _isLoading = false;
-      });
+      // Praktik terbaik: Cek apakah widget masih ada di tree sebelum memanggil setState
+      if (mounted) {
+        setState(() {
+          _customer = customer;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print('Error: $e');
+      print('Gagal mengambil data customer: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading =
+              false; // Hentikan loading meskipun gagal agar tidak stuck
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Tampilkan loading indicator selama data diambil
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // Tampilkan pesan error jika data customer gagal didapat (null)
+    if (_customer == null) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              "Gagal memuat data profile.\nSilakan coba lagi nanti.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Tampilan utama jika data berhasil didapat
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -60,23 +79,20 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                children: [
-                  const Text(
-                    "My Profile",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              // Header Halaman
+              const Text(
+                "My Profile",
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
 
-              // Avatar + Nama
+              // Bagian Avatar dan Nama
               Row(
                 children: [
                   const CircleAvatar(
                     radius: 36,
                     backgroundImage: AssetImage('assets/avatar.png'),
+                    backgroundColor: Colors.black12,
                   ),
                   const SizedBox(width: 16),
                   Column(
@@ -99,11 +115,11 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 24),
 
+              // Daftar Detail Profile
               ProfileItem(
                 label: "Identity Number",
                 value: _customer!.identityNumber,
               ),
-
               ProfileItem(
                 label: "Departemen",
                 value: _customer!.department.departmentName,
@@ -116,38 +132,13 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.push(context, HorizontalSlideRoute(page: MainPage()));
-          } else if (index == 1) {
-            Navigator.push(
-              context,
-              HorizontalSlideRoute(page: ActivityPages()),
-            );
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFFFF7622),
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        iconSize: 28,
-        selectedFontSize: 14,
-        unselectedFontSize: 14,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Order'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
-        ],
-      ),
+      // PENTING: Bagian bottomNavigationBar sudah dipindahkan ke app_shell.dart
+      // dan DIHAPUS dari file ini untuk memperbaiki masalah navigasi.
     );
   }
 }
 
+/// Widget reusable untuk menampilkan satu baris item profile (label dan value).
 class ProfileItem extends StatelessWidget {
   final String label;
   final String value;
@@ -170,60 +161,4 @@ class ProfileItem extends StatelessWidget {
       ],
     );
   }
-}
-
-class RatingItem extends StatelessWidget {
-  final double rating;
-
-  const RatingItem({super.key, required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Rating",
-          style: TextStyle(color: Colors.grey, fontSize: 14),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            const Icon(Icons.star, color: Colors.orange, size: 20),
-            const SizedBox(width: 4),
-            Text(
-              rating.toStringAsFixed(1),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Divider(),
-      ],
-    );
-  }
-}
-
-// Untuk animasi slide antar halaman
-class HorizontalSlideRoute extends PageRouteBuilder {
-  final Widget page;
-
-  HorizontalSlideRoute({required this.page})
-    : super(
-        pageBuilder: (context, animation, secondaryAnimation) => page,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.ease;
-
-          final tween = Tween(
-            begin: begin,
-            end: end,
-          ).chain(CurveTween(curve: curve));
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-      );
 }

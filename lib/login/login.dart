@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import '../pages/main_pages.dart';
-import '../services/login_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// --- PERBAIKAN 1: Import AppShell ---
+// Kita perlu mengimpor AppShell agar bisa menavigasi ke sana.
+// Sesuaikan path ini jika AppShell Anda tidak berada di folder lib/.
+import 'package:petraporter_buyer/app_shell.dart';
+import '../services/login_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,20 +27,27 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void handleLogin() async {
+    // Tambahkan loading indicator jika perlu
     final auth = AuthService();
     final result = await auth.login(
       emailController.text.trim(),
       passwordController.text.trim(),
     );
 
+    // Pastikan widget masih ada sebelum melanjutkan
+    if (!mounted) return;
+
     if (result['success']) {
       final user = result['user'];
       print('Login berhasil! Selamat datang, ${user['nama']}');
 
-      // Navigasi ke MainPage
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainPage()),
+      // --- PERBAIKAN 2: Navigasi setelah login ---
+      // Ganti navigasi ke MainPage dengan navigasi ke AppShell.
+      // pushAndRemoveUntil akan membersihkan tumpukan halaman,
+      // sehingga pengguna tidak bisa kembali ke halaman login.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AppShell()),
+        (Route<dynamic> route) => false,
       );
     } else {
       showDialog(
@@ -58,12 +69,15 @@ class _LoginPageState extends State<LoginPage> {
 
   void checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getString('user_id') ?? 'not-login';
-    print(isLoggedIn);
-    if (isLoggedIn != 'not-login') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainPage()),
+    final isLoggedIn =
+        prefs.getString('token') != null; // Cek token lebih andal
+
+    if (isLoggedIn) {
+      // --- PERBAIKAN 3: Navigasi saat sudah login ---
+      // Jika pengguna sudah login, langsung arahkan ke AppShell, bukan MainPage.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AppShell()),
+        (Route<dynamic> route) => false,
       );
     }
   }
@@ -80,7 +94,6 @@ class _LoginPageState extends State<LoginPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 10),
-
                 // Logo
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -88,9 +101,7 @@ class _LoginPageState extends State<LoginPage> {
                   height: 300,
                   child: Image.asset('assets/logo.png', fit: BoxFit.contain),
                 ),
-
                 const SizedBox(height: 30),
-
                 // Login Form Container
                 Container(
                   padding: const EdgeInsets.all(25),
@@ -134,7 +145,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
                       // Password Field
                       TextField(
                         controller: passwordController,
@@ -174,7 +184,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 30),
-
                       // Login Button
                       SizedBox(
                         width: double.infinity,

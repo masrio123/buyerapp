@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:petraporter_buyer/delivery/my_cart_page.dart';
-import 'package:petraporter_buyer/models/product.dart';
 import 'package:petraporter_buyer/services/product_service.dart';
 import '../models/tenant.dart';
 import '../services/home_service.dart';
 import '../models/cart_model.dart';
 
-class KantinGedungW extends StatefulWidget {
+class TenantPages extends StatefulWidget {
   final int vendorId;
   final String vendorName;
   final CartModel cart;
   final VoidCallback onCartUpdated;
 
-  const KantinGedungW({
+  const TenantPages({
     super.key,
     required this.vendorId,
     required this.vendorName,
@@ -21,10 +20,10 @@ class KantinGedungW extends StatefulWidget {
   });
 
   @override
-  State<KantinGedungW> createState() => _KantinGedungWState();
+  State<TenantPages> createState() => _TenantPageState();
 }
 
-class _KantinGedungWState extends State<KantinGedungW> {
+class _TenantPageState extends State<TenantPages> {
   List<Tenant> _vendors = [];
   bool _isLoading = true;
 
@@ -118,7 +117,7 @@ class _KantinGedungWState extends State<KantinGedungW> {
                             context,
                             MaterialPageRoute(
                               builder:
-                                  (_) => VendorMenuGedungWPage(
+                                  (_) => VendorMenuTenantPage(
                                     vendorName: tenant.name,
                                     vendorId: tenant.tenantLocationId,
                                     cart: widget.cart,
@@ -177,8 +176,11 @@ class _KantinGedungWState extends State<KantinGedungW> {
               ),
             );
           },
-          icon: const Icon(Icons.shopping_cart),
-          label: const Text('Cart', style: TextStyle(fontFamily: 'Sen')),
+          icon: const Icon(Icons.shopping_cart, color: Colors.white70),
+          label: const Text(
+            'CART',
+            style: TextStyle(fontFamily: 'Sen', color: Colors.white70),
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -186,13 +188,13 @@ class _KantinGedungWState extends State<KantinGedungW> {
   }
 }
 
-class VendorMenuGedungWPage extends StatefulWidget {
+class VendorMenuTenantPage extends StatefulWidget {
   final String vendorName;
   final int vendorId;
   final CartModel cart;
   final VoidCallback onCartUpdated;
 
-  const VendorMenuGedungWPage({
+  const VendorMenuTenantPage({
     super.key,
     required this.vendorName,
     required this.vendorId,
@@ -201,17 +203,16 @@ class VendorMenuGedungWPage extends StatefulWidget {
   });
 
   @override
-  State<VendorMenuGedungWPage> createState() => _VendorMenuGedungWPageState();
+  State<VendorMenuTenantPage> createState() => _VendorMenuTenantPageState();
 }
 
-class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
-  late Future<Map<String, Map<String, List<Map<String, dynamic>>>>>
-  kantinGedungWMenu;
+class _VendorMenuTenantPageState extends State<VendorMenuTenantPage> {
+  late Future<Map<String, Map<String, List<Map<String, dynamic>>>>> TenantMenu;
 
   @override
   void initState() {
     super.initState();
-    kantinGedungWMenu = ProductService.fetchKantinMenu(widget.vendorId);
+    TenantMenu = ProductService.fetchKantinMenu(widget.vendorId);
   }
 
   @override
@@ -250,7 +251,7 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
               child: RefreshIndicator(
                 onRefresh: () async {
                   setState(() {
-                    kantinGedungWMenu = ProductService.fetchKantinMenu(
+                    TenantMenu = ProductService.fetchKantinMenu(
                       widget.vendorId,
                     );
                   });
@@ -258,7 +259,7 @@ class _VendorMenuGedungWPageState extends State<VendorMenuGedungWPage> {
                 child: FutureBuilder<
                   Map<String, Map<String, List<Map<String, dynamic>>>>
                 >(
-                  future: kantinGedungWMenu,
+                  future: TenantMenu,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());

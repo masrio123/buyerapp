@@ -408,7 +408,7 @@ class _MyCartPageState extends State<MyCartPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.red.shade700,
-                    fontSize: 1,
+                    fontSize: 15,
                     fontFamily: 'Sen',
                   ),
                 ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 // PENTING: Sesuaikan path di bawah ini dengan struktur folder Anda!
-import '../login/login.dart';
 import '../pages/main_pages.dart';
 import '../pages/activity_pages.dart';
 import '../pages/account_pages.dart';

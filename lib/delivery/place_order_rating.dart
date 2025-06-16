@@ -435,14 +435,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
             style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
           ),
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.phone, color: Colors.green),
-              SizedBox(width: 10),
-              Icon(Icons.chat, color: Colors.blue),
-            ],
-          ),
         ],
       ),
     );
@@ -581,7 +573,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (m) => '${m[1]}.',
   );
-  String _getPorterPhoto(String name) => 'assets/porter1.png';
+  String _getPorterPhoto(String name) => 'assets/avatar.png';
 }
 
 // Halaman 4: Halaman untuk memberi rating

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Sesuaikan path import di bawah ini dengan struktur folder Anda
-import 'package:petraporter_buyer/kantin/kantin_gedung_w.dart';
+import 'package:petraporter_buyer/pages/tenant_pages.dart';
 import 'package:petraporter_buyer/login/login.dart';
 import 'package:petraporter_buyer/models/cart_model.dart';
 import '../services/home_service.dart';
@@ -173,7 +173,7 @@ class _MainPageState extends State<MainPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Image.asset('assets/cart.png', width: 45, height: 45),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +285,7 @@ class _MainPageState extends State<MainPage> {
             context,
             MaterialPageRoute(
               builder:
-                  (_) => KantinGedungW(
+                  (_) => TenantPages(
                     vendorId: id,
                     vendorName: title,
                     cart: _cart,

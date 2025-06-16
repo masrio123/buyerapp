@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-// Import AppShell untuk navigasi setelah login berhasil.
 import 'package:petraporter_buyer/app_shell.dart';
 import '../services/login_service.dart';
 
@@ -99,7 +96,7 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.only(top: 40, bottom: 20),
                           child: Column(
                             children: [
-                              Image.asset('assets/logo.png', height: 350),
+                              Image.asset('assets/logo.png', height: 280),
                             ],
                           ),
                         ),

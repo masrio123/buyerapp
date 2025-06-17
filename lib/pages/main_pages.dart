@@ -1,3 +1,7 @@
+// ===================================================================
+// FILE 1: pages/main_page.dart
+// (Ganti seluruh isi file ini dengan kode di bawah)
+// ===================================================================
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,8 +24,6 @@ class _MainPageState extends State<MainPage> {
   List<TenantLocation> _locations = [];
   bool _isLoading = true;
   String? _errorMessage;
-
-  // Variabel _cart didefinisikan di sini, sebagai anggota dari _MainPageState.
   final CartModel _cart = CartModel();
 
   @override
@@ -30,7 +32,6 @@ class _MainPageState extends State<MainPage> {
     loadTenantLocations();
   }
 
-  /// Memuat lokasi tenant dari service dan juga memuat lokasi terakhir yang disimpan.
   Future<void> loadTenantLocations() async {
     try {
       final locations = await HomeService.fetchTenantLocations();
@@ -56,19 +57,16 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  /// Menyimpan ID lokasi yang dipilih ke SharedPreferences.
   Future<void> _saveSelectedLocationId(int id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('selected_location_id', id);
   }
 
-  /// Mengambil ID lokasi yang tersimpan dari SharedPreferences.
   Future<int?> _loadSavedLocationId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('selected_location_id');
   }
 
-  /// Mendapatkan nama lokasi yang sedang dipilih untuk ditampilkan di UI.
   String get _selectedLocationName {
     if (_selectedLocationId == null || _locations.isEmpty) {
       return 'Pilih Lokasi';
@@ -80,7 +78,6 @@ class _MainPageState extends State<MainPage> {
     return loc.locationName;
   }
 
-  /// Proses logout pengguna dan kembali ke halaman Login.
   void _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -93,54 +90,99 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  /// Menampilkan dialog untuk memilih lokasi kantin.
+  // <<< PERBAIKAN: Fungsi baru untuk menangani perubahan lokasi
+  void _handleLocationChange(BuildContext dialogContext, int newLocationId) {
+    // Jika lokasi baru berbeda DAN keranjang tidak kosong
+    if (newLocationId != _selectedLocationId && _cart.totalItems > 0) {
+      _showConfirmClearCartDialog(dialogContext, newLocationId);
+    } else {
+      // Jika keranjang kosong atau lokasi sama, langsung ubah
+      _changeLocation(dialogContext, newLocationId);
+    }
+  }
+
+  // <<< PERBAIKAN: Fungsi untuk mengubah lokasi dan mengosongkan keranjang
+  void _changeLocation(BuildContext dialogContext, int newLocationId) {
+    Navigator.of(dialogContext).pop(); // Tutup dialog picker
+    if (_cart.totalItems > 0) {
+      setState(() => _cart.clear());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lokasi diubah dan keranjang telah dikosongkan.'),
+        ),
+      );
+    }
+    setState(() => _selectedLocationId = newLocationId);
+    _saveSelectedLocationId(newLocationId);
+  }
+
+  // <<< PERBAIKAN: Dialog konfirmasi untuk mengosongkan keranjang
+  void _showConfirmClearCartDialog(
+    BuildContext dialogContext,
+    int newLocationId,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Ganti Lokasi?"),
+            content: const Text(
+              "Keranjang Anda berisi item dari lokasi saat ini. Mengganti lokasi akan mengosongkan keranjang Anda. Lanjutkan?",
+            ),
+            actions: [
+              TextButton(
+                child: const Text("Batal"),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: const Text(
+                  "Lanjutkan",
+                  style: TextStyle(color: Colors.red),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop(); // Tutup dialog konfirmasi
+                  _changeLocation(dialogContext, newLocationId);
+                },
+              ),
+            ],
+          ),
+    );
+  }
+
   void _showLocationPicker(BuildContext ctx) {
     if (_locations.isEmpty) return;
 
     showDialog(
       context: ctx,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter dialogSetState) {
-            return AlertDialog(
-              title: const Text('Pilih Lokasi'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children:
-                      _locations.map((loc) {
-                        return RadioListTile<int>(
-                          title: Text(
-                            loc.locationName,
-                            style: const TextStyle(
-                              fontFamily: 'Sen',
-                              fontSize: 16,
-                            ),
-                          ),
-                          value: loc.id,
-                          groupValue: _selectedLocationId,
-                          onChanged: (value) {
-                            if (value != null) {
-                              dialogSetState(() {
-                                _selectedLocationId = value;
-                              });
-                              _saveSelectedLocationId(value);
-                              setState(() {});
-                              Navigator.of(ctx).pop();
-                            }
-                          },
-                        );
-                      }).toList(),
-                ),
-              ),
-            );
-          },
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Pilih Lokasi'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children:
+                  _locations.map((loc) {
+                    return RadioListTile<int>(
+                      title: Text(
+                        loc.locationName,
+                        style: const TextStyle(fontFamily: 'Sen', fontSize: 16),
+                      ),
+                      value: loc.id,
+                      groupValue: _selectedLocationId,
+                      onChanged: (value) {
+                        if (value != null) {
+                          _handleLocationChange(dialogContext, value);
+                        }
+                      },
+                    );
+                  }).toList(),
+            ),
+          ),
         );
       },
     );
   }
 
-  /// Menampilkan dialog peringatan jika pengguna mencoba mengakses lokasi yang salah.
   void _showLocationSelectionRequiredDialog(String requiredLocation) {
     showDialog(
       context: context,
@@ -172,7 +214,7 @@ class _MainPageState extends State<MainPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Image.asset('assets/cart.png', width: 45, height: 45),
+                  Image.asset('assets/cart.png', width: 45, height: 60),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
@@ -185,13 +227,15 @@ class _MainPageState extends State<MainPage> {
                             color: Colors.black54,
                             fontWeight: FontWeight.w400,
                             letterSpacing: 1,
+                            height: 2.0,
                           ),
                         ),
                         TextButton(
                           onPressed: () => _showLocationPicker(context),
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 30),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             alignment: Alignment.centerLeft,
                           ),
                           child: Row(
@@ -203,6 +247,7 @@ class _MainPageState extends State<MainPage> {
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black,
+                                  height: 1.0,
                                 ),
                               ),
                               const Icon(
@@ -221,7 +266,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 15),
               const Text.rich(
                 TextSpan(
                   text: 'Halo, ',
@@ -248,20 +293,16 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_errorMessage != null) {
-      return Center(child: Text(_errorMessage!));
-    }
-    if (_locations.isEmpty) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorMessage != null) return Center(child: Text(_errorMessage!));
+    if (_locations.isEmpty)
       return const Center(child: Text('Belum ada lokasi kantin tersedia.'));
-    }
+
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1,
+      childAspectRatio: 0.8,
       children:
           _locations.map((loc) {
             return _buildKantinCard(loc.id, 'KANTIN\n${loc.locationName}');
@@ -269,18 +310,11 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  /// Membangun kartu untuk setiap kantin.
-  /// Method ini sekarang berisi logika validasi berdasarkan lokasi yang dipilih.
   Widget _buildKantinCard(int id, String title) {
     return GestureDetector(
       onTap: () {
-        // --- LOGIKA VALIDASI BARU DITERAPKAN DI SINI ---
-        // 1. Dapatkan nama lokasi dari judul kartu (e.g., "Gedung W").
         final tappedLocationName = title.split('\n').last;
-
-        // 2. Bandingkan dengan lokasi yang sedang dipilih di dropdown.
         if (_selectedLocationName == tappedLocationName) {
-          // 3. Jika sama, lanjutkan ke halaman kantin.
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -294,7 +328,6 @@ class _MainPageState extends State<MainPage> {
             ),
           );
         } else {
-          // 4. Jika berbeda, tampilkan peringatan bahwa lokasi harus diubah.
           _showLocationSelectionRequiredDialog(tappedLocationName);
         }
       },

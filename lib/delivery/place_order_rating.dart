@@ -1,190 +1,143 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 // Import AppShell untuk memastikan kita bisa kembali ke 'rumah' yang benar.
 import 'package:petraporter_buyer/app_shell.dart';
 // Sesuaikan path import di bawah ini jika diperlukan
 import 'package:petraporter_buyer/models/porter.dart';
-import 'package:petraporter_buyer/models/history.dart';
 import 'package:petraporter_buyer/services/cart_service.dart';
+import 'package:intl/intl.dart';
 
-// Halaman ini tidak lagi diperlukan karena logikanya sudah pindah ke halaman keranjang (MyCartPage).
-// Saya tetap sertakan di sini sesuai permintaan, tetapi idealnya ini dihapus
-// dan alurnya dimulai dari MyCartPage.
+// Halaman ini tidak lagi relevan, tapi tetap disertakan agar tidak error
 class PlaceOrderRating extends StatefulWidget {
   final int cartId;
-
   const PlaceOrderRating({super.key, required this.cartId});
-
   @override
   State<PlaceOrderRating> createState() => _PlaceOrderRatingState();
 }
 
 class _PlaceOrderRatingState extends State<PlaceOrderRating> {
-  bool _isPlacingOrder = false;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(title: const Text("Place Order")),
-      body: Center(
-        child:
-            _isPlacingOrder
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00AA13),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                  onPressed: () => _showConfirmDialog(context),
-                  child: const Text(
-                    'PLACE ORDER',
-                    style: TextStyle(fontFamily: 'Sen'),
-                  ),
-                ),
-      ),
+      body: const Center(child: Text("This page is deprecated.")),
     );
-  }
-
-  void _showConfirmDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (_) => AlertDialog(
-            title: const Text(
-              'Konfirmasi',
-              style: TextStyle(fontFamily: 'Sen'),
-            ),
-            content: const Text(
-              'Proses orderan sekarang?',
-              style: TextStyle(fontFamily: 'Sen'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Batal', style: TextStyle(fontFamily: 'Sen')),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handlePlaceOrder();
-                },
-                child: const Text('Ya', style: TextStyle(fontFamily: 'Sen')),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _handlePlaceOrder() async {
-    setState(() => _isPlacingOrder = true);
-    try {
-      final checkoutResponse = await CartService.checkoutCart(widget.cartId);
-      if (!mounted) return;
-
-      if (checkoutResponse['order'] == null) {
-        throw Exception("Struktur respons checkout tidak valid.");
-      }
-      final orderData = checkoutResponse['order'];
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => SearchingPorterPage(
-                orderId: orderData['id'],
-                subtotal: orderData['subtotal'] ?? 0,
-                deliveryFee: orderData['delivery_fee'] ?? 0,
-                total: orderData['total'] ?? 0,
-              ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal melakukan checkout: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isPlacingOrder = false);
-      }
-    }
   }
 }
 
-// Halaman 2: Animasi saat mencari porter
+// Halaman 2: Mencari & Menunggu Konfirmasi Porter
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
-  final int subtotal;
-  final int deliveryFee;
-  final int total;
-
   const SearchingPorterPage({
     Key? key,
     required this.orderId,
-    required this.subtotal,
-    required this.deliveryFee,
-    required this.total,
+    int? subtotal,
+    int? deliveryFee,
+    int? total,
   }) : super(key: key);
-
   @override
   State<SearchingPorterPage> createState() => _SearchingPorterPageState();
 }
 
 class _SearchingPorterPageState extends State<SearchingPorterPage>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  bool _isError = false;
+  late AnimationController _animationController;
+  Timer? _pollingTimer;
+  String _statusMessage = 'Mencari Porter Terbaik Untukmu...';
+  bool _showRetryOptions = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
-    _startSearching();
+    _startPolling();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animationController.dispose();
+    _pollingTimer?.cancel();
     super.dispose();
   }
 
-  void _startSearching() async {
-    setState(() => _isError = false);
-    try {
-      await Future.wait([
-        CartService.searchPorter(widget.orderId),
-        Future.delayed(const Duration(seconds: 4)), // UX Delay
-      ]);
+  void _startPolling() {
+    if (!mounted) return;
+    _pollingTimer?.cancel();
+    _checkOrderStatus();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
+      if (mounted) _checkOrderStatus();
+    });
+  }
 
+  Future<void> _checkOrderStatus() async {
+    if (!mounted) return;
+    setState(() => _showRetryOptions = false);
+
+    try {
+      final result = await CartService.searchPorter(widget.orderId);
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => PorterFoundPage(
-                orderId: widget.orderId,
-                subtotal: widget.subtotal,
-                deliveryFee: widget.deliveryFee,
-                total: widget.total,
-              ),
+      if (result.message.toLowerCase().contains("sistem menunjuk porter")) {
+        _pollingTimer?.cancel();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => PorterFoundPage(
+                  orderId: widget.orderId,
+                  porterResult: result,
+                ),
+          ),
+        );
+      } else {
+        setState(() {
+          _statusMessage = result.message;
+          if (result.message.toLowerCase().contains("menunggu porter") ||
+              result.message.toLowerCase().contains("tidak ada porter")) {
+            _showRetryOptions = true;
+          }
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = "Gagal menemukan porter yang tersedia.";
+        _showRetryOptions = true;
+      });
+      _pollingTimer?.cancel();
+    }
+  }
+
+  Future<void> _handleCancelOrder() async {
+    try {
+      await CartService.cancelOrder(widget.orderId);
+      if (!mounted) return;
+
+      _pollingTimer?.cancel();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Order berhasil dibatalkan."),
+          backgroundColor: Colors.green,
         ),
       );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
     } catch (e) {
-      print("gagal mencari porter karena $e");
       if (!mounted) return;
-      _controller.stop();
-      setState(() => _isError = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal membatalkan order: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -193,63 +146,67 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child:
-            !_isError
-                ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    RotationTransition(
-                      turns: _controller,
-                      child: Image.asset('assets/loading.png', width: 60),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (!_showRetryOptions)
+              RotationTransition(
+                turns: _animationController,
+                child: Image.asset('assets/loading.png', width: 60),
+              )
+            else
+              const Icon(Icons.error_outline, size: 60, color: Colors.red),
+
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                _statusMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontFamily: 'Sen', fontSize: 18),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            if (_showRetryOptions)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: _handleCancelOrder,
+                    child: const Text(
+                      'Batalkan Order',
+                      style: TextStyle(color: Colors.red),
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Mencari Porter...',
-                      style: TextStyle(fontFamily: 'Sen', fontSize: 18),
-                    ),
-                  ],
-                )
-                : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Gagal menemukan porter',
-                      style: TextStyle(fontFamily: 'Sen', fontSize: 18),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        _controller.repeat();
-                        _startSearching();
-                      },
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      _animationController.repeat();
+                      _startPolling();
+                    },
+                    child: const Text('Cari Lagi'),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// Halaman 3: Detail order setelah porter ditemukan
+// ===================================================================
+// Halaman PorterFoundPage (Desain Ulang Total)
+// ===================================================================
 class PorterFoundPage extends StatefulWidget {
   final int orderId;
-  final int subtotal;
-  final int deliveryFee;
-  final int total;
+  final PorterResult porterResult;
 
   const PorterFoundPage({
     Key? key,
     required this.orderId,
-    required this.subtotal,
-    required this.deliveryFee,
-    required this.total,
+    required this.porterResult,
   }) : super(key: key);
 
   @override
@@ -258,17 +215,19 @@ class PorterFoundPage extends StatefulWidget {
 
 class _PorterFoundPageState extends State<PorterFoundPage> {
   late Future<PorterResult?> _porterFuture;
-  bool _porterCancelled = false;
   Timer? _timer;
+  final currencyFormatter = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
     super.initState();
-    _startFetchingPorter();
+    _porterFuture = Future.value(widget.porterResult);
     _timer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted && !_porterCancelled) {
-        _startFetchingPorter();
-      }
+      if (mounted) _refreshPorterStatus();
     });
   }
 
@@ -278,11 +237,116 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     super.dispose();
   }
 
-  void _startFetchingPorter() {
+  void _refreshPorterStatus() {
     if (!mounted) return;
     setState(() {
       _porterFuture = CartService.searchPorter(widget.orderId);
     });
+  }
+
+  void _showOrderDetailsDialog(BuildContext context, PorterResult porter) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Text(
+                        "Order Details",
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(child: Text("ID: #${porter.orderId}")),
+                    const Divider(height: 30),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...porter.items.map(
+                              (resto) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    resto.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  if (resto.note != null &&
+                                      resto.note!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 4,
+                                        bottom: 8,
+                                      ),
+                                      child: Text(
+                                        '“${resto.note!}”',
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  ...resto.items.map(
+                                    (item) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 8.0,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text('${item.quantity}x'),
+                                          const SizedBox(width: 16),
+                                          Expanded(child: Text(item.name)),
+                                          Text(
+                                            currencyFormatter.format(
+                                              item.price,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text(
+                          'Close',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
   }
 
   @override
@@ -291,151 +355,119 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 1,
+        elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          'Porter Found!',
-          style: TextStyle(fontFamily: 'Sen', fontSize: 20),
+          'Tracking Order',
+          style: TextStyle(
+            fontFamily: 'Sen',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            // --- PERBAIKAN ---
-            // Saat kembali, kita kembali ke 'rumah' (AppShell).
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const AppShell()),
-              (route) => false,
-            );
-          },
+          onPressed:
+              () => Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const AppShell()),
+                (route) => false,
+              ),
         ),
       ),
       body: FutureBuilder<PorterResult?>(
         future: _porterFuture,
         builder: (context, snapshot) {
-          if (_porterCancelled) {
-            return _buildPorterCancelledWidget();
-          }
           if (snapshot.connectionState == ConnectionState.waiting &&
               snapshot.data == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return Center(child: Text('❌ Error: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data?.porterName == null) {
-            _porterCancelled = true;
-            return _buildPorterCancelledWidget();
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Center(
+              child: Text(
+                '❌ Error: ${snapshot.error ?? "Data tidak ditemukan"}',
+              ),
+            );
           }
 
           final porter = snapshot.data!;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPorterInfo(porter),
-                const Divider(height: 30),
-                _buildPaymentSection(porter),
-                const SizedBox(height: 30),
-                _buildDeliverySteps(porter),
-                const SizedBox(height: 30),
-                _buildRateButton(context, porter),
-              ],
-            ),
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _buildPorterInfo(porter),
+              const SizedBox(height: 24),
+              _buildViewOrderButton(context, porter),
+              const SizedBox(height: 24),
+              const Divider(thickness: 1.5),
+              const SizedBox(height: 24),
+              _buildPaymentSection(porter),
+              const SizedBox(height: 24),
+              _buildDeliverySteps(porter),
+              const SizedBox(height: 40),
+              _buildRateButton(context, porter),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildPorterCancelledWidget() {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Order Dibatalkan",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "Porter membatalkan orderan ini. Apa yang ingin Anda lakukan?",
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _porterCancelled = false);
-                      _startFetchingPorter();
-                    },
-                    child: const Text("Cari Porter Baru"),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      try {
-                        await CartService.cancelOrder(widget.orderId);
-                        if (!mounted) return;
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const AppShell()),
-                          (route) => false,
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Gagal membatalkan order: $e"),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text(
-                      "Batalkan Order",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+  Widget _buildPorterInfo(PorterResult porter) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
         ),
-      ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              porter.porterName,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Sen',
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              porter.porterNrp,
+              style: TextStyle(
+                fontSize: 16,
+                fontFamily: 'Sen',
+                color: Colors.grey.shade600,
+              ),
+            ),
+            Text(
+              porter.porterDepartment,
+              style: TextStyle(
+                fontSize: 16,
+                fontFamily: 'Sen',
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildPorterInfo(PorterResult porter) {
-    return Center(
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
+  Widget _buildViewOrderButton(BuildContext context, PorterResult porter) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.receipt_long_outlined),
+        label: const Text('Lihat Detail Pesanan'),
+        onPressed: () => _showOrderDetailsDialog(context, porter),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black,
+          side: BorderSide(color: Colors.grey.shade300),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 10),
-          Text(
-            porter.porterName,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Sen',
-            ),
-          ),
-          Text(
-            porter.porterNrp,
-            style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
-          ),
-          Text(
-            porter.porterDepartment,
-            style: const TextStyle(fontSize: 16, fontFamily: 'Sen'),
-          ),
-          const SizedBox(height: 10),
-        ],
+        ),
       ),
     );
   }
@@ -447,17 +479,73 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         const Text(
           'TOTAL PAYMENT',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Sen',
+            fontSize: 2,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
           ),
         ),
         const SizedBox(height: 10),
-        _buildPriceRow('Total Price', porter.totalPrice),
-        _buildPriceRow('Delivery Fee', porter.shippingCost),
-        const Divider(),
-        _buildPriceRow('TOTAL', porter.grandTotal, bold: true),
+        _buildPriceRow(
+          'Total Price',
+          currencyFormatter.format(_parseAmountToNum(porter.totalPrice)),
+        ),
+        _buildPriceRow(
+          'Delivery Fee',
+          currencyFormatter.format(_parseAmountToNum(porter.shippingCost)),
+        ),
+        const Divider(height: 24),
+        _buildPriceRow(
+          'TOTAL',
+          currencyFormatter.format(_parseAmountToNum(porter.grandTotal)),
+          bold: true,
+        ),
+        const SizedBox(height: 20),
+        _buildCopyableInfo(porter.porterNrp, 'A.N ${porter.porterName}'),
       ],
+    );
+  }
+
+  Widget _buildCopyableInfo(String accountNumber, String accountName) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF7622).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                accountNumber,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(accountName, style: TextStyle(color: Colors.grey.shade700)),
+            ],
+          ),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: accountNumber));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Nomor rekening disalin!')),
+              );
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFFF7622),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('COPY'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -466,30 +554,41 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Status Pengiriman',
+          'STATUS PENGIRIMAN',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Sen',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
           ),
         ),
-        const SizedBox(height: 10),
-        ...porter.status.map((step) => _buildProgressStep(step)).toList(),
+        const SizedBox(height: 16),
+        ...List.generate(porter.status.length, (index) {
+          final step = porter.status[index];
+          return _buildProgressStep(
+            step: step,
+            isFirst: index == 0,
+            isLast: index == porter.status.length - 1,
+          );
+        }),
       ],
     );
   }
 
   Widget _buildRateButton(BuildContext context, PorterResult porter) {
+    final bool isFinished = porter.status.any(
+      (s) => s.label.toLowerCase().contains('sampai') && s.key,
+    );
+    if (!isFinished) return const SizedBox.shrink();
+
     return Center(
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RatingPage(orderId: porter.orderId),
+        onPressed:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RatingPage(orderId: porter.orderId),
+              ),
             ),
-          );
-        },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF7A00),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -509,58 +608,78 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
-  Widget _buildPriceRow(String label, dynamic amount, {bool bold = false}) {
-    int intAmount;
-    if (amount is int) {
-      intAmount = amount;
-    } else if (amount is String) {
-      intAmount = double.tryParse(amount)?.round() ?? 0;
-    } else {
-      intAmount = 0;
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            fontFamily: 'Sen',
-            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+  Widget _buildPriceRow(String label, String value, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
           ),
-        ),
-        Text(
-          'Rp ${_formatCurrency(intAmount)}',
-          style: TextStyle(
-            fontSize: 16,
-            fontFamily: 'Sen',
-            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'Sen',
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildProgressStep(OrderStatus step) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+  // <<< PERBAIKAN TOTAL: Tata letak & logika diubah
+  Widget _buildProgressStep({
+    required OrderStatus step,
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    const activeColor = Color(0xFFFF7622);
+    final inactiveColor = Colors.grey.shade300;
+
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            step.key ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: step.key ? Colors.green : Colors.grey,
-            size: 20,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 2,
+                height: 12,
+                color:
+                    isFirst
+                        ? Colors.transparent
+                        : (step.key ? activeColor : inactiveColor),
+              ),
+              Icon(
+                step.key ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: step.key ? activeColor : inactiveColor,
+                size: 24,
+              ),
+              Expanded(
+                child: Container(
+                  width: 2,
+                  color: isLast ? Colors.transparent : inactiveColor,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              step.label,
-              style: TextStyle(
-                fontSize: 16,
-                fontFamily: 'Sen',
-                color: step.key ? Colors.black : Colors.grey,
-                fontWeight: step.key ? FontWeight.bold : FontWeight.normal,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2.0, bottom: 24.0),
+              child: Text(
+                step.label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontFamily: 'Sen',
+                  color: step.key ? Colors.black : Colors.grey,
+                  fontWeight: step.key ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
           ),
@@ -569,10 +688,12 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
-  String _formatCurrency(int amount) => amount.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (m) => '${m[1]}.',
-  );
+  num _parseAmountToNum(dynamic amount) {
+    if (amount is num) return amount;
+    if (amount is String) return num.tryParse(amount) ?? 0;
+    return 0;
+  }
+
   String _getPorterPhoto(String name) => 'assets/avatar.png';
 }
 
@@ -603,8 +724,6 @@ class _RatingPageState extends State<RatingPage> {
       ).showSnackBar(SnackBar(content: Text(result['message'])));
 
       if (result['success']) {
-        // --- PERBAIKAN ---
-        // Ini adalah akhir dari siklus order. Kembali ke 'rumah' (AppShell).
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AppShell()),
           (route) => false,
@@ -630,6 +749,15 @@ class _RatingPageState extends State<RatingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'Beri Rating',
+          style: TextStyle(fontFamily: 'Sen', fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -658,7 +786,7 @@ class _RatingPageState extends State<RatingPage> {
                       Icons.star,
                       color:
                           index < _selectedStars
-                              ? Colors.orange
+                              ? const Color(0xFFFF7622)
                               : Colors.grey[300],
                       size: 50,
                     ),
@@ -723,6 +851,14 @@ class _RatingPageState extends State<RatingPage> {
                             color: Colors.white,
                           ),
                         ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Kembali',
+                  style: TextStyle(fontFamily: 'Sen', color: Colors.grey),
+                ),
               ),
               const SizedBox(height: 20),
             ],

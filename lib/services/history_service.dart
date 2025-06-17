@@ -28,7 +28,9 @@ class HistoryService {
                 ? orderJson['porter']['name']
                 : 'Belum Ada Porter',
         id: orderJson['order_id']?.toString() ?? '-',
-        order_status: orderJson['order_status'],
+        orderStatus: orderJson['order_status'],
+        totalPrice: orderJson['total_price'],
+        shippingCost: orderJson['shipping_cost'],
         grandTotal: orderJson['grand_total'] ?? 0,
         items:
             (orderJson['items'] as List<dynamic>).map<RestaurantOrder>((

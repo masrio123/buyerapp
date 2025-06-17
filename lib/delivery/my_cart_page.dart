@@ -1,7 +1,10 @@
+// ===================================================================
+// FILE 2: pages/my_cart_page.dart
+// (Ganti seluruh isi file ini dengan kode di bawah)
+// ===================================================================
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Sesuaikan path import di bawah ini jika diperlukan
 import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 import 'package:petraporter_buyer/services/cart_service.dart';
 import 'package:petraporter_buyer/models/delivery.dart';
@@ -9,8 +12,7 @@ import 'package:petraporter_buyer/models/cart_model.dart';
 
 class MyCartPage extends StatefulWidget {
   final CartModel cart;
-  final VoidCallback
-  onClear; // Callback untuk membersihkan keranjang di MainPage
+  final VoidCallback onClear;
 
   const MyCartPage({super.key, required this.cart, required this.onClear});
 
@@ -19,11 +21,12 @@ class MyCartPage extends StatefulWidget {
 }
 
 class _MyCartPageState extends State<MyCartPage> {
-  // State untuk alur baru
   List<DeliveryPoint> _deliveryPoints = [];
   DeliveryPoint? _selectedPoint;
   bool _isLoadingLocations = true;
   bool _isPlacingOrder = false;
+  // <<< PERBAIKAN: Fungsi notes DIHAPUS untuk sementara
+  // final Map<String, TextEditingController> _notesControllers = {};
 
   @override
   void initState() {
@@ -31,7 +34,12 @@ class _MyCartPageState extends State<MyCartPage> {
     _fetchDeliveryPoints();
   }
 
-  /// 1. Mengambil daftar lokasi pengantaran dari server saat halaman dimuat.
+  @override
+  void dispose() {
+    // _notesControllers.values.forEach((controller) => controller.dispose()); // Dihapus
+    super.dispose();
+  }
+
   Future<void> _fetchDeliveryPoints() async {
     try {
       final points = await CartService.getDeliveryPoints();
@@ -49,62 +57,32 @@ class _MyCartPageState extends State<MyCartPage> {
     }
   }
 
-  /// 2. Menangani seluruh proses checkout setelah tombol ditekan.
   Future<void> _handleCheckout() async {
-    // Validasi: pastikan lokasi sudah dipilih
     if (_selectedPoint == null) {
       _showErrorDialog('Silakan pilih lokasi pengantaran terlebih dahulu.');
-      return;
-    }
-
-    // --- PERBAIKAN: Validasi tambahan sebelum checkout ---
-    if (!_areVendorsInSameBuilding()) {
-      _showErrorDialog(
-        'Pesanan dari tenant yang berbeda gedung tidak dapat diproses bersamaan.',
-      );
       return;
     }
 
     setState(() => _isPlacingOrder = true);
 
     try {
-      // Langkah A: Buat keranjang baru di server
       final cartResult = await CartService.createCart(_selectedPoint!.id);
       final int cartId = cartResult['cart']['id'];
-      print('✅ Keranjang berhasil dibuat: ID = $cartId');
 
-      // Langkah B: Tambahkan semua item ke keranjang yang baru dibuat
       for (var vendor in widget.cart.vendors) {
         for (var item in widget.cart.itemsOf(vendor)) {
-          await CartService.addToCart(
-            cartId,
-            item['id'],
-            1,
-          ); // Asumsi kuantitas selalu 1
+          // <<< PERBAIKAN: Parameter notes dihapus dari panggilan service
+          await CartService.addToCart(cartId, item['id'], 1);
         }
       }
-      print('✅ Semua item berhasil ditambahkan ke keranjang server.');
 
-      // Langkah C: Lakukan checkout
       final checkoutResult = await CartService.checkoutCart(cartId);
-
-      if (checkoutResult == null || checkoutResult['order'] == null) {
-        throw Exception("Struktur respons checkout dari server tidak valid.");
-      }
-
       final orderData = checkoutResult['order'];
-      if (orderData['id'] == null) {
-        throw Exception("Respons checkout tidak berisi ID order.");
-      }
-
-      print('✅ Checkout berhasil untuk order ID: ${orderData['id']}');
-
       final int newOrderId = orderData['id'];
       final int newSubtotal = orderData['total_price'];
       final int newDeliveryFee = orderData['shipping_cost'];
       final int newTotal = orderData['grand_total'];
 
-      // Langkah D: Bersihkan keranjang lokal dan navigasi
       widget.onClear();
       if (mounted) {
         Navigator.pushReplacement(
@@ -132,34 +110,11 @@ class _MyCartPageState extends State<MyCartPage> {
   }
 
   String _formatCurrency(int amount) {
-    final formatCurrency = NumberFormat.currency(
+    return NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'Rp ',
       decimalDigits: 0,
-    );
-    return formatCurrency.format(amount);
-  }
-
-  // --- FUNGSI BARU UNTUK VALIDASI LOKASI ---
-  bool _areVendorsInSameBuilding() {
-    final vendors = widget.cart.vendors;
-    // Jika hanya ada 0 atau 1 vendor, dianggap valid.
-    if (vendors.length <= 1) {
-      return true;
-    }
-
-    // Ambil nama gedung dari vendor pertama. Asumsi format: "KANTIN\nGedung W"
-    final firstBuilding = vendors.first.split('\n').last;
-
-    // Periksa apakah semua vendor lain berada di gedung yang sama.
-    for (int i = 1; i < vendors.length; i++) {
-      final currentBuilding = vendors[i].split('\n').last;
-      if (firstBuilding != currentBuilding) {
-        return false; // Ditemukan perbedaan, langsung return false.
-      }
-    }
-
-    return true; // Semua vendor di gedung yang sama.
+    ).format(amount);
   }
 
   @override
@@ -214,6 +169,7 @@ class _MyCartPageState extends State<MyCartPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ExpansionTile(
+                  initiallyExpanded: true,
                   title: Text(
                     vendor,
                     style: const TextStyle(
@@ -222,42 +178,45 @@ class _MyCartPageState extends State<MyCartPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  children: List.generate(items.length, (index) {
-                    final item = items[index];
-                    return ListTile(
-                      title: Text(
-                        item['name'],
-                        style: const TextStyle(fontFamily: 'Sen'),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatCurrency(item['price']),
-                            style: const TextStyle(
-                              fontFamily: 'Sen',
-                              fontSize: 16,
+                  children: [
+                    // <<< PERBAIKAN: Widget TextFormField untuk notes DIHAPUS
+                    ...List.generate(items.length, (index) {
+                      final item = items[index];
+                      return ListTile(
+                        title: Text(
+                          item['name'],
+                          style: const TextStyle(fontFamily: 'Sen'),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _formatCurrency(item['price']),
+                              style: const TextStyle(
+                                fontFamily: 'Sen',
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  widget.cart.removeItemByVendorAndIndex(
+                                    vendor,
+                                    index,
+                                  );
+                                  widget.onClear();
+                                });
+                              },
                             ),
-                            onPressed: () {
-                              setState(() {
-                                widget.cart.removeItemByVendorAndIndex(
-                                  vendor,
-                                  index,
-                                );
-                                widget.onClear();
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             );
@@ -309,11 +268,8 @@ class _MyCartPageState extends State<MyCartPage> {
                           ),
                         );
                       }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedPoint = newValue;
-                    });
-                  },
+                  onChanged:
+                      (newValue) => setState(() => _selectedPoint = newValue),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -335,22 +291,18 @@ class _MyCartPageState extends State<MyCartPage> {
     final totalQuantity = widget.cart.totalItems;
     int shippingCost = 0;
     if (totalQuantity > 0) {
-      if (totalQuantity <= 2) {
+      if (totalQuantity <= 2)
         shippingCost = 2000;
-      } else if (totalQuantity <= 4) {
+      else if (totalQuantity <= 4)
         shippingCost = 5000;
-      } else if (totalQuantity <= 10) {
+      else if (totalQuantity <= 10)
         shippingCost = 10000;
-      } else {
+      else
         shippingCost = 10000 + ((totalQuantity - 10) * 1000).ceil();
-      }
     }
-
     final subtotal = widget.cart.totalPrice;
     final grandTotal = subtotal + shippingCost;
-
-    // --- PERBAIKAN: Variabel untuk status validasi ---
-    final bool isLocationValid = _areVendorsInSameBuilding();
+    final bool isCheckoutEnabled = _selectedPoint != null && !_isPlacingOrder;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -381,14 +333,9 @@ class _MyCartPageState extends State<MyCartPage> {
                     fontFamily: 'Sen',
                     fontWeight: FontWeight.bold,
                   ),
+                  disabledBackgroundColor: Colors.grey.shade300,
                 ),
-                // --- PERBAIKAN: Logika onPressed diperbarui ---
-                onPressed:
-                    (isLocationValid &&
-                            _selectedPoint != null &&
-                            !_isPlacingOrder)
-                        ? _handleCheckout
-                        : null,
+                onPressed: isCheckoutEnabled ? _handleCheckout : null,
                 child:
                     _isPlacingOrder
                         ? const SizedBox(
@@ -399,20 +346,6 @@ class _MyCartPageState extends State<MyCartPage> {
                         : const Text('Place Order'),
               ),
             ),
-            // --- PERBAIKAN: Menampilkan pesan peringatan ---
-            if (!isLocationValid)
-              Padding(
-                padding: const EdgeInsets.only(top: 12.0),
-                child: Text(
-                  'Pesanan dari tenant yang berbeda gedung tidak dapat diproses bersamaan.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.red.shade700,
-                    fontSize: 15,
-                    fontFamily: 'Sen',
-                  ),
-                ),
-              ),
           ],
         ),
       ),

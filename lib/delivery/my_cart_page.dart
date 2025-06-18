@@ -1,7 +1,3 @@
-// ===================================================================
-// FILE 2: pages/my_cart_page.dart
-// (Ganti seluruh isi file ini dengan kode di bawah)
-// ===================================================================
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -25,7 +21,8 @@ class _MyCartPageState extends State<MyCartPage> {
   DeliveryPoint? _selectedPoint;
   bool _isLoadingLocations = true;
   bool _isPlacingOrder = false;
-  // <<< PERBAIKAN: Fungsi notes DIHAPUS untuk sementara
+
+  // Controller untuk notes, bisa diaktifkan kembali jika diperlukan.
   // final Map<String, TextEditingController> _notesControllers = {};
 
   @override
@@ -36,7 +33,7 @@ class _MyCartPageState extends State<MyCartPage> {
 
   @override
   void dispose() {
-    // _notesControllers.values.forEach((controller) => controller.dispose()); // Dihapus
+    // _notesControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
   }
 
@@ -71,30 +68,26 @@ class _MyCartPageState extends State<MyCartPage> {
 
       for (var vendor in widget.cart.vendors) {
         for (var item in widget.cart.itemsOf(vendor)) {
-          // <<< PERBAIKAN: Parameter notes dihapus dari panggilan service
-          await CartService.addToCart(cartId, item['id'], 1);
+          // Jika fitur notes diaktifkan, kirim notes dari _notesControllers
+          await CartService.addToCart(
+            cartId,
+            item['id'],
+            1,
+          ); // Kirim string kosong untuk notes
         }
       }
 
       final checkoutResult = await CartService.checkoutCart(cartId);
       final orderData = checkoutResult['order'];
       final int newOrderId = orderData['id'];
-      final int newSubtotal = orderData['total_price'];
-      final int newDeliveryFee = orderData['shipping_cost'];
-      final int newTotal = orderData['grand_total'];
 
       widget.onClear();
       if (mounted) {
+        // FIX: Menghapus parameter yang tidak lagi digunakan di SearchingPorterPage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => SearchingPorterPage(
-                  orderId: newOrderId,
-                  subtotal: newSubtotal,
-                  deliveryFee: newDeliveryFee,
-                  total: newTotal,
-                ),
+            builder: (context) => SearchingPorterPage(orderId: newOrderId),
           ),
         );
       }
@@ -179,7 +172,6 @@ class _MyCartPageState extends State<MyCartPage> {
                     ),
                   ),
                   children: [
-                    // <<< PERBAIKAN: Widget TextFormField untuk notes DIHAPUS
                     ...List.generate(items.length, (index) {
                       final item = items[index];
                       return ListTile(

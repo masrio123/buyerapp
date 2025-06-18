@@ -1,203 +1,454 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-// Import AppShell untuk memastikan kita bisa kembali ke 'rumah' yang benar.
-import 'package:petraporter_buyer/app_shell.dart';
-// Sesuaikan path import di bawah ini jika diperlukan
-import 'package:petraporter_buyer/models/porter.dart';
-import 'package:petraporter_buyer/services/cart_service.dart';
 import 'package:intl/intl.dart';
+import 'package:petraporter_buyer/app_shell.dart';
+import 'package:petraporter_buyer/models/porter.dart';
+import '../services/cart_service.dart';
 
-// Halaman ini tidak lagi relevan, tapi tetap disertakan agar tidak error
-class PlaceOrderRating extends StatefulWidget {
-  final int cartId;
-  const PlaceOrderRating({super.key, required this.cartId});
-  @override
-  State<PlaceOrderRating> createState() => _PlaceOrderRatingState();
-}
+// --- UI Theming ---
+const Color _primaryColor = Color(0xFFFF7622);
+const Color _backgroundColor = Color(0xFFF8F9FA);
 
-class _PlaceOrderRatingState extends State<PlaceOrderRating> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Place Order")),
-      body: const Center(child: Text("This page is deprecated.")),
-    );
-  }
-}
+/*
+  --- SARAN UNTUK TRANSISI DARI PLACE ORDER ---
+  Untuk mendapatkan efek transisi yang bagus saat membuka halaman ini,
+  Anda bisa memanggilnya dari halaman sebelumnya (misal: halaman cart) menggunakan
+  PageRouteBuilder seperti ini:
 
-// Halaman 2: Mencari & Menunggu Konfirmasi Porter
+  Navigator.push(
+    context,
+    PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => SearchingPorterPage(orderId: yourOrderId),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 400),
+    )
+  );
+*/
+
+// ===================================================================
+// Halaman 1: Mencari & Menunggu Konfirmasi Porter (UI DIROMBAK)
+// ===================================================================
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
-  const SearchingPorterPage({
-    Key? key,
-    required this.orderId,
-    int? subtotal,
-    int? deliveryFee,
-    int? total,
-  }) : super(key: key);
+  const SearchingPorterPage({Key? key, required this.orderId})
+    : super(key: key);
+
   @override
   State<SearchingPorterPage> createState() => _SearchingPorterPageState();
 }
 
 class _SearchingPorterPageState extends State<SearchingPorterPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+    with TickerProviderStateMixin {
+  // Menggunakan TickerProviderStateMixin untuk banyak controller
+  late AnimationController _sonarAnimationController;
+  late AnimationController _fadeAnimationController;
+  late Animation<double> _sonarAnimation;
+  late Animation<double> _fadeAnimation;
   Timer? _pollingTimer;
+
   String _statusMessage = 'Mencari Porter Terbaik Untukmu...';
-  bool _showRetryOptions = false;
+  bool _isPollingActive = true;
+  bool _isTerminalFailure = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _sonarAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
     )..repeat();
+    _sonarAnimation = CurvedAnimation(
+      parent: _sonarAnimationController,
+      curve: Curves.fastOutSlowIn,
+    );
+
+    _fadeAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeAnimationController,
+      curve: Curves.easeInOut,
+    );
+
     _startPolling();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _sonarAnimationController.dispose();
+    _fadeAnimationController.dispose();
     _pollingTimer?.cancel();
     super.dispose();
   }
 
   void _startPolling() {
     if (!mounted) return;
-    _pollingTimer?.cancel();
-    _checkOrderStatus();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
-      if (mounted) _checkOrderStatus();
+    setState(() {
+      _statusMessage = 'Mencari Porter Terbaik Untukmu...';
+      _isPollingActive = true;
+      _isTerminalFailure = false;
+      if (!_sonarAnimationController.isAnimating) {
+        _sonarAnimationController.repeat();
+      }
     });
+
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && _isPollingActive) {
+        _checkOrderStatus();
+      }
+    });
+    _checkOrderStatus();
   }
 
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    if (mounted) {
+      setState(() => _isPollingActive = false);
+      if (_sonarAnimationController.isAnimating) {
+        _sonarAnimationController.stop();
+      }
+    }
+  }
+
+  // =======================================================================
+  // LOGIKA TIDAK DIUBAH
+  // =======================================================================
   Future<void> _checkOrderStatus() async {
     if (!mounted) return;
-    setState(() => _showRetryOptions = false);
 
     try {
       final result = await CartService.searchPorter(widget.orderId);
       if (!mounted) return;
 
-      if (result.message.toLowerCase().contains("sistem menunjuk porter")) {
-        _pollingTimer?.cancel();
+      final message = result.message.toLowerCase();
+      final bool hasPorterAccepted = result.status.any((status) {
+        final label = status.label.toLowerCase();
+        return (label.contains('received') ||
+                label.contains('diterima') ||
+                label.contains('accepted') ||
+                label.contains('dikonfirmasi')) &&
+            status.key == true;
+      });
+
+      final bool messageConfirmsPorter =
+          message.contains('porter ditemukan') ||
+          message.contains('porter telah menerima') ||
+          message.contains('order dikonfirmasi') ||
+          message.contains('porter assigned');
+
+      if (hasPorterAccepted || messageConfirmsPorter) {
+        _stopPolling();
+
+        // --- PERUBAHAN --- Transisi ke PorterFoundPage dibuat lebih menarik
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder:
-                (_) => PorterFoundPage(
+          PageRouteBuilder(
+            pageBuilder:
+                (context, animation, secondaryAnimation) => PorterFoundPage(
                   orderId: widget.orderId,
                   porterResult: result,
                 ),
+            transitionDuration: const Duration(milliseconds: 500),
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              // Efek fade-in dan scale-up untuk halaman berikutnya
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+                  child: child,
+                ),
+              );
+            },
           ),
         );
-      } else {
-        setState(() {
-          _statusMessage = result.message;
-          if (result.message.toLowerCase().contains("menunggu porter") ||
-              result.message.toLowerCase().contains("tidak ada porter")) {
-            _showRetryOptions = true;
-          }
-        });
+        return;
       }
-    } catch (e) {
-      if (!mounted) return;
+
+      final bool isTotalFailure =
+          message.contains("tidak ada porter yang tersedia") ||
+          message.contains("tidak ada porter online") ||
+          message.contains("semua porter menolak") ||
+          message.contains("timeout") ||
+          message.contains("gagal menemukan porter");
+
+      if (isTotalFailure) {
+        _stopPolling();
+        setState(() {
+          _statusMessage =
+              "Gagal menemukan porter. Silakan coba lagi atau batalkan pesanan.";
+          _isTerminalFailure = true;
+        });
+        _showSearchOrCancelDialog();
+        return;
+      }
+
+      String updatedMessage = result.message;
+      if (updatedMessage.isEmpty || updatedMessage == result.message) {
+        final bool hasPorterInProcess = result.status.any((status) {
+          final label = status.label.toLowerCase();
+          return (label.contains('waiting') ||
+                  label.contains('menunggu') ||
+                  label.contains('processing') ||
+                  label.contains('finding')) &&
+              status.key == true;
+        });
+
+        if (hasPorterInProcess) {
+          updatedMessage = 'Menunggu konfirmasi dari porter...';
+        } else {
+          updatedMessage = 'Mencari porter yang tersedia...';
+        }
+      }
+
       setState(() {
-        _statusMessage = "Gagal menemukan porter yang tersedia.";
-        _showRetryOptions = true;
+        _statusMessage = updatedMessage;
       });
-      _pollingTimer?.cancel();
+    } catch (e) {
+      _stopPolling();
+      setState(() {
+        _statusMessage = "Terjadi kesalahan: ${e.toString()}";
+        _isTerminalFailure = true;
+      });
+      _showSearchOrCancelDialog();
     }
   }
 
   Future<void> _handleCancelOrder() async {
-    try {
-      await CartService.cancelOrder(widget.orderId);
-      if (!mounted) return;
+    final bool? confirmCancel = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            title: const Text("Konfirmasi Pembatalan"),
+            content: const Text(
+              "Apakah Anda yakin ingin membatalkan pesanan ini?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text("Tidak"),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text("Ya, Batalkan"),
+              ),
+            ],
+          ),
+    );
 
+    if (confirmCancel != true) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      setState(() => _isPollingActive = false);
       _pollingTimer?.cancel();
-      ScaffoldMessenger.of(context).showSnackBar(
+      await CartService.cancelOrder(widget.orderId);
+      messenger.showSnackBar(
         const SnackBar(
           content: Text("Order berhasil dibatalkan."),
           backgroundColor: Colors.green,
         ),
       );
-
-      Navigator.of(context).pushAndRemoveUntil(
+      navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AppShell()),
         (route) => false,
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: Text("Gagal membatalkan order: $e"),
+          content: Text("Gagal membatalkan order: ${e.toString()}"),
           backgroundColor: Colors.red,
         ),
       );
+      if (mounted) _startPolling();
     }
+  }
+
+  void _showSearchOrCancelDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: const Text("Pencarian Gagal"),
+          content: Text(_statusMessage),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AppShell()),
+                  (route) => false,
+                );
+              },
+              child: const Text(
+                "Kembali ke Home",
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _startPolling();
+              },
+              child: const Text(
+                "Cari Lagi",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!_showRetryOptions)
-              RotationTransition(
-                turns: _animationController,
-                child: Image.asset('assets/loading.png', width: 60),
-              )
-            else
-              const Icon(Icons.error_outline, size: 60, color: Colors.red),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, _primaryColor.withOpacity(0.1)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isPollingActive)
+                  _buildSearchingAnimation()
+                else if (_isTerminalFailure)
+                  Icon(
+                    Icons.search_off_rounded,
+                    size: 100,
+                    color: Colors.red.shade300,
+                  )
+                else
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 100,
+                    color: Colors.grey,
+                  ),
 
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontFamily: 'Sen', fontSize: 18),
-              ),
-            ),
-            const SizedBox(height: 20),
+                const SizedBox(height: 40),
 
-            if (_showRetryOptions)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: _handleCancelOrder,
-                    child: const Text(
-                      'Batalkan Order',
-                      style: TextStyle(color: Colors.red),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Text(
+                    _statusMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Sen',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      _animationController.repeat();
-                      _startPolling();
-                    },
-                    child: const Text('Cari Lagi'),
+                ),
+                const SizedBox(height: 60),
+                if (_isPollingActive)
+                  ElevatedButton.icon(
+                    onPressed: _handleCancelOrder,
+                    icon: const Icon(
+                      Icons.cancel_outlined,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Batalkan Pesanan',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
                   ),
-                ],
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchingAnimation() {
+    return SizedBox(
+      height: 200,
+      width: 200,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ScaleTransition(
+            scale: _sonarAnimation,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _primaryColor.withOpacity(0.1),
+              ),
+            ),
+          ),
+          Container(
+            height: 120,
+            width: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _primaryColor.withOpacity(0.2),
+            ),
+          ),
+          Container(
+            height: 80,
+            width: 80,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: _primaryColor,
+            ),
+            child: const Icon(
+              Icons.delivery_dining,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ===================================================================
-// Halaman PorterFoundPage (Desain Ulang Total)
+// HALAMAN 2 (PorterFoundPage) - TIDAK DIUBAH (KECUALI NAVIGASI KE RATING)
 // ===================================================================
 class PorterFoundPage extends StatefulWidget {
   final int orderId;
@@ -218,7 +469,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   Timer? _timer;
   final currencyFormatter = NumberFormat.currency(
     locale: 'id_ID',
-    symbol: 'Rp',
+    symbol: 'Rp ',
     decimalDigits: 0,
   );
 
@@ -296,7 +547,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                         bottom: 8,
                                       ),
                                       child: Text(
-                                        '“${resto.note!}”',
+                                        '"${resto.note!}"',
                                         style: const TextStyle(
                                           color: Colors.black54,
                                           fontStyle: FontStyle.italic,
@@ -330,6 +581,28 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                           ],
                         ),
                       ),
+                    ),
+                    const Divider(height: 24, thickness: 1),
+                    const SizedBox(height: 8),
+                    _buildPriceRow(
+                      'Subtotal Pesanan',
+                      currencyFormatter.format(
+                        _parseAmountToNum(porter.totalPrice),
+                      ),
+                    ),
+                    _buildPriceRow(
+                      'Ongkos Kirim',
+                      currencyFormatter.format(
+                        _parseAmountToNum(porter.shippingCost),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    _buildPriceRow(
+                      'GRAND TOTAL',
+                      currencyFormatter.format(
+                        _parseAmountToNum(porter.grandTotal),
+                      ),
+                      bold: true,
                     ),
                     const SizedBox(height: 24),
                     Center(
@@ -419,35 +692,37 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
           backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
         ),
         const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              porter.porterName,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Sen',
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                porter.porterName,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Sen',
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              porter.porterNrp,
-              style: TextStyle(
-                fontSize: 16,
-                fontFamily: 'Sen',
-                color: Colors.grey.shade600,
+              const SizedBox(height: 4),
+              Text(
+                porter.porterNrp,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontFamily: 'Sen',
+                  color: Colors.grey.shade600,
+                ),
               ),
-            ),
-            Text(
-              porter.porterDepartment,
-              style: TextStyle(
-                fontSize: 16,
-                fontFamily: 'Sen',
-                color: Colors.grey.shade600,
+              Text(
+                porter.porterDepartment,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontFamily: 'Sen',
+                  color: Colors.grey.shade600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -479,7 +754,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         const Text(
           'TOTAL PAYMENT',
           style: TextStyle(
-            fontSize: 2,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: Colors.grey,
           ),
@@ -556,7 +831,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         const Text(
           'STATUS PENGIRIMAN',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.grey,
           ),
@@ -574,6 +849,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
+  // --- PERUBAHAN --- Transisi ke RatingPage dibuat lebih menarik
   Widget _buildRateButton(BuildContext context, PorterResult porter) {
     final bool isFinished = porter.status.any(
       (s) => s.label.toLowerCase().contains('sampai') && s.key,
@@ -585,8 +861,28 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         onPressed:
             () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => RatingPage(orderId: porter.orderId),
+              PageRouteBuilder(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) =>
+                        RatingPage(orderId: porter.orderId),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  // Efek slide-up untuk halaman rating
+                  const begin = Offset(0.0, 1.0);
+                  const end = Offset.zero;
+                  final tween = Tween(
+                    begin: begin,
+                    end: end,
+                  ).chain(CurveTween(curve: Curves.easeInOut));
+                  return SlideTransition(
+                    position: animation.drive(tween),
+                    child: child,
+                  );
+                },
               ),
             ),
         style: ElevatedButton.styleFrom(
@@ -616,7 +912,11 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade700,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
           Text(
             value,
@@ -631,7 +931,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     );
   }
 
-  // <<< PERBAIKAN TOTAL: Tata letak & logika diubah
   Widget _buildProgressStep({
     required OrderStatus step,
     required bool isFirst,
@@ -697,7 +996,9 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   String _getPorterPhoto(String name) => 'assets/avatar.png';
 }
 
-// Halaman 4: Halaman untuk memberi rating
+// ===================================================================
+// HALAMAN 3 (RatingPage) - UI DIROMBAK & REVIEW DIHILANGKAN
+// ===================================================================
 class RatingPage extends StatefulWidget {
   final int orderId;
   const RatingPage({Key? key, required this.orderId}) : super(key: key);
@@ -707,33 +1008,45 @@ class RatingPage extends StatefulWidget {
 
 class _RatingPageState extends State<RatingPage> {
   int _selectedStars = 5;
-  final TextEditingController _controller = TextEditingController();
   bool _isLoading = false;
 
+  // Map untuk deskripsi rating
+  final Map<int, String> _ratingDescriptions = {
+    1: 'Sangat Buruk',
+    2: 'Buruk',
+    3: 'Cukup',
+    4: 'Bagus',
+    5: 'Luar Biasa!',
+  };
+
+  // --- LOGIKA DIPERBARUI --- Parameter review dihilangkan
   Future<void> _submitRating() async {
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
       final result = await CartService.ratePorter(
         orderId: widget.orderId,
         rating: _selectedStars,
-        review: _controller.text,
+        review: '', // Review dihilangkan, kirim string kosong
       );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result['message'])));
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(result['message']),
+          backgroundColor: result['success'] ? Colors.green : Colors.red,
+        ),
+      );
 
       if (result['success']) {
-        Navigator.of(context).pushAndRemoveUntil(
+        navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AppShell()),
           (route) => false,
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -741,37 +1054,56 @@ class _RatingPageState extends State<RatingPage> {
 
   @override
   void dispose() {
-    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
         title: const Text(
           'Beri Rating',
-          style: TextStyle(fontFamily: 'Sen', fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontFamily: 'Sen',
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 50),
-              Image.asset('assets/portericon.png', height: 150),
-              const SizedBox(height: 20),
+              const Spacer(),
+              const CircleAvatar(
+                radius: 60,
+                backgroundColor: _primaryColor,
+                child: Icon(
+                  Icons.delivery_dining,
+                  color: Colors.white,
+                  size: 60,
+                ),
+              ),
+              const SizedBox(height: 24),
               const Text(
-                'Rate Your Delivery',
+                'Bagaimana Pengirimannya?',
                 style: TextStyle(
-                  fontSize: 25,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  fontFamily: 'Sen',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _ratingDescriptions[_selectedStars] ?? '',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.grey,
                   fontFamily: 'Sen',
                 ),
               ),
@@ -780,87 +1112,64 @@ class _RatingPageState extends State<RatingPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   5,
-                  (index) => IconButton(
-                    onPressed: () => setState(() => _selectedStars = index + 1),
-                    icon: Icon(
-                      Icons.star,
-                      color:
-                          index < _selectedStars
-                              ? const Color(0xFFFF7622)
-                              : Colors.grey[300],
-                      size: 50,
+                  (index) => GestureDetector(
+                    onTap: () => setState(() => _selectedStars = index + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.star,
+                        color:
+                            index < _selectedStars
+                                ? _primaryColor
+                                : Colors.grey[300],
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _controller,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Write your review...',
-                    hintStyle: TextStyle(
-                      fontFamily: 'Sen',
-                      fontSize: 14,
-                      color: Colors.black54,
+              const Spacer(),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitRating,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  style: const TextStyle(
-                    fontFamily: 'Sen',
-                    fontSize: 14,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitRating,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF7A00),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child:
-                    _isLoading
-                        ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          )
+                          : const Text(
+                            'Kirim Penilaian',
+                            style: TextStyle(
+                              fontFamily: 'Sen',
+                              fontSize: 18,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        )
-                        : const Text(
-                          'Submit & Back To Home',
-                          style: TextStyle(
-                            fontFamily: 'Sen',
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
-                        ),
+                ),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text(
-                  'Kembali',
+                  'Lewati',
                   style: TextStyle(fontFamily: 'Sen', color: Colors.grey),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),

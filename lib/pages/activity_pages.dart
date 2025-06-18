@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:petraporter_buyer/delivery/place_order_rating.dart'; // <<< PERBAIKAN: Import PorterFoundPage dari sini
+import 'package:petraporter_buyer/delivery/place_order_rating.dart';
 import '../services/history_service.dart';
 import '../models/history.dart';
 import '../services/cart_service.dart';
@@ -38,18 +38,13 @@ class _ActivityPagesState extends State<ActivityPages> {
   void _handleShowDetails(Order order) {
     final status = order.orderStatus.toLowerCase();
 
-    // Jika order sudah selesai atau dibatalkan, tampilkan popup ringkasan
     if (status == 'finished' ||
         status == 'canceled' ||
         status == 'telah sampai ke customer') {
       _showOrderDetailPopup(context, order);
-    }
-    // Jika order masih aktif, buka halaman live tracking
-    else if (order.id.isNotEmpty && int.tryParse(order.id) != null) {
+    } else if (order.id.isNotEmpty && int.tryParse(order.id) != null) {
       _navigateToLiveTracking(int.parse(order.id));
-    }
-    // Fallback jika ID tidak valid
-    else {
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Order ID tidak valid untuk melihat detail.'),
@@ -74,7 +69,6 @@ class _ActivityPagesState extends State<ActivityPages> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          // <<< PERBAIKAN: Memanggil PorterFoundPage yang sudah di-import
           builder:
               (_) =>
                   PorterFoundPage(orderId: orderId, porterResult: porterResult),
@@ -109,7 +103,7 @@ class _ActivityPagesState extends State<ActivityPages> {
       case 'pending':
       case 'waiting for acceptance':
       case 'waiting':
-      case 'received': // status 'accepted' di backend
+      case 'received':
         iconData = Icons.hourglass_top;
         iconColor = Colors.orange.shade700;
         break;
@@ -117,7 +111,6 @@ class _ActivityPagesState extends State<ActivityPages> {
         iconData = Icons.receipt_long;
         iconColor = const Color(0xFFFF7622);
     }
-
     return Icon(iconData, size: 36, color: iconColor);
   }
 
@@ -158,7 +151,6 @@ class _ActivityPagesState extends State<ActivityPages> {
                     }
 
                     final orders = snapshot.data!;
-
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       itemCount: orders.length,
@@ -249,8 +241,8 @@ class _ActivityPagesState extends State<ActivityPages> {
                     const SizedBox(height: 8),
                     Center(child: Text("ID: ${order.id}")),
                     const SizedBox(height: 20),
-                    _buildDetailRow(label: "Tanggal", value: order.date),
-                    _buildDetailRow(
+                    _buildDetailRowPopup(label: "Tanggal", value: order.date),
+                    _buildDetailRowPopup(
                       label: "Status",
                       value: order.orderStatus,
                       valueColor: Colors.green.shade700,
@@ -315,17 +307,26 @@ class _ActivityPagesState extends State<ActivityPages> {
                         ),
                       ),
                     ),
+                    // FIX: Menambahkan kembali bagian Total Payment yang hilang
                     const Divider(height: 30),
-                    _buildDetailRow(
+                    const Text(
+                      "TOTAL PAYMENT",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRowPopup(
                       label: "Subtotal",
                       value: currencyFormatter.format(order.totalPrice),
                     ),
-                    _buildDetailRow(
+                    _buildDetailRowPopup(
                       label: "Ongkos Kirim",
                       value: currencyFormatter.format(order.shippingCost),
                     ),
                     const SizedBox(height: 12),
-                    _buildDetailRow(
+                    _buildDetailRowPopup(
                       label: "TOTAL",
                       value: currencyFormatter.format(order.grandTotal),
                       isTotal: true,
@@ -348,7 +349,7 @@ class _ActivityPagesState extends State<ActivityPages> {
     );
   }
 
-  Widget _buildDetailRow({
+  Widget _buildDetailRowPopup({
     required String label,
     required String value,
     Color? valueColor,

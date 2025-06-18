@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../services/customer_service.dart';
-import 'main_pages.dart';
-import 'activity_pages.dart';
+// Note: These imports might need to be adjusted based on your project structure.
+// import 'main_pages.dart';
+// import 'activity_pages.dart';
 
-// Kelas 'AccountPages' yang lama sudah tidak diperlukan dan dihapus.
-// Kita sekarang langsung mengekspor 'ProfilePage' sebagai halaman utama untuk tab ini.
+// --- PERUBAHAN --- Warna primer dan sekunder untuk tema baru
+const Color _primaryColor = Color(0xFFFF7622);
+const Color _backgroundColor = Color(0xFFFFFFFF); // Background putih bersih
+const Color _textColor = Color(0xFF333333);
+const Color _subtleTextColor = Colors.grey;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -21,15 +25,15 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    fetchCustomer();
+    _fetchCustomer();
   }
 
   /// Mengambil data detail customer dari service.
-  /// Menangani state loading dan error.
-  Future<void> fetchCustomer() async {
+  Future<void> _fetchCustomer() async {
+    // Simulasi loading
+    await Future.delayed(const Duration(milliseconds: 500));
     try {
       final customer = await CustomerService.fetchCustomerDetail();
-      // Praktik terbaik: Cek apakah widget masih ada di tree sebelum memanggil setState
       if (mounted) {
         setState(() {
           _customer = customer;
@@ -40,125 +44,193 @@ class _ProfilePageState extends State<ProfilePage> {
       print('Gagal mengambil data customer: $e');
       if (mounted) {
         setState(() {
-          _isLoading =
-              false; // Hentikan loading meskipun gagal agar tidak stuck
+          _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Gagal memuat data profile.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan loading indicator selama data diambil
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        title: const Text(
+          "My Profile",
+          style: TextStyle(
+            color: _textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        backgroundColor: _backgroundColor,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _fetchCustomer,
+        color: _primaryColor,
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Center(
+        child: CircularProgressIndicator(color: _primaryColor),
+      );
     }
 
-    // Tampilkan pesan error jika data customer gagal didapat (null)
     if (_customer == null) {
-      return const Scaffold(
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              "Gagal memuat data profile.\nSilakan coba lagi nanti.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.wifi_off_rounded, color: Colors.grey[400], size: 60),
+              const SizedBox(height: 16),
+              const Text(
+                "Gagal memuat data profile.\nSilakan periksa koneksi Anda.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: _subtleTextColor),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                onPressed: _fetchCustomer,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Coba Lagi"),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    // Tampilan utama jika data berhasil didapat
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Halaman
-              const Text(
-                "My Profile",
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-
-              // Bagian Avatar dan Nama
-              Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 36,
-                    backgroundImage: AssetImage('assets/avatar.png'),
-                    backgroundColor: Colors.black12,
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _customer!.customerName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Text(
-                        'Customer',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Daftar Detail Profile
-              ProfileItem(
-                label: "Identity Number",
-                value: _customer!.identityNumber,
-              ),
-              ProfileItem(
-                label: "Departemen",
-                value: _customer!.department.departmentName,
-              ),
-              ProfileItem(
-                label: "Nomor Rekening",
-                value: _customer!.bankUser.accountNumber,
-              ),
-            ],
-          ),
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          const SizedBox(height: 32),
+          _buildInfoDetails(),
+          // --- PERUBAHAN --- Tombol logout dihilangkan dari sini
+        ],
       ),
-      // PENTING: Bagian bottomNavigationBar sudah dipindahkan ke app_shell.dart
-      // dan DIHAPUS dari file ini untuk memperbaiki masalah navigasi.
     );
   }
-}
 
-/// Widget reusable untuk menampilkan satu baris item profile (label dan value).
-class ProfileItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const ProfileItem({super.key, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
+  /// Header profil yang lebih ringkas
+  Widget _buildProfileHeader() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        const CircleAvatar(
+          radius: 50,
+          backgroundImage: AssetImage('assets/avatar.png'),
+          backgroundColor: Colors.black12,
         ),
         const SizedBox(height: 16),
-        const Divider(),
+        Text(
+          _customer!.customerName,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: _textColor,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _customer!.identityNumber,
+          style: const TextStyle(fontSize: 16, color: _subtleTextColor),
+        ),
       ],
     );
   }
+
+  /// Widget baru untuk menampilkan detail informasi dalam kartu
+  Widget _buildInfoDetails() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow(
+            label: "Departemen",
+            value: _customer!.department.departmentName,
+            icon: Icons.business_center_outlined,
+          ),
+          const Divider(height: 1),
+          _buildInfoRow(
+            label: "Nomor Rekening",
+            value: _customer!.bankUser.accountNumber,
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Widget untuk satu baris informasi
+  Widget _buildInfoRow({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Row(
+        children: [
+          Icon(icon, color: _primaryColor, size: 24),
+          const SizedBox(width: 16),
+          Text(label, style: const TextStyle(fontSize: 16, color: _textColor)),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _subtleTextColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- PERUBAHAN --- Widget tombol logout dihapus seluruhnya
 }

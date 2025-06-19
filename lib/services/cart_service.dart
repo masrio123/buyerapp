@@ -26,8 +26,6 @@ class CartService {
     final customer_id = await customerID();
     final tenantLocationId = await getLocationId();
 
-    print('user_id : $customer_id dan location_id : $tenantLocationId');
-
     if (token == null || customer_id == null) {
       throw Exception('Token or user ID not found');
     }
@@ -59,8 +57,6 @@ class CartService {
     int productId,
     int quantity,
   ) async {
-    print("cart_id  : $cartId, product_id : $productId store to database");
-
     final token = await getToken();
 
     final response = await http.post(
@@ -78,21 +74,21 @@ class CartService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      print("✅ Berhasil menambahkan produk ke keranjang");
       return jsonDecode(response.body);
     } else {
       final errorMessage = jsonDecode(response.body);
-      print(
-        "❌ Gagal menambahkan produk: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
-      );
       throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
     }
   }
 
-  static Future<Map<String, dynamic>> checkoutCart(int cartId) async {
-    print("🛒 Melakukan checkout untuk cart_id: $cartId");
-
+  static Future<Map<String, dynamic>> checkoutCart(
+    int cartId,
+    List<Map<String, dynamic>> notes,
+  ) async {
     final token = await getToken();
+    final body = jsonEncode({'notes': notes});
+
+    print("🛒 CHECKOUT PAYLOAD TO BE SENT: $body");
 
     final response = await http.post(
       Uri.parse('$baseURL/cart/$cartId/checkout'),
@@ -101,6 +97,7 @@ class CartService {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
+      body: body,
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -111,13 +108,13 @@ class CartService {
       print(
         "❌ Gagal checkout: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
       );
-      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+      throw Exception(
+        'Checkout Gagal: ${errorMessage['message'] ?? 'Unknown error'}',
+      );
     }
   }
 
   static Future<Map<String, dynamic>> cancelOrder(int cartId) async {
-    print("🛒 Melakukan pembatalan checkout untuk cart_id: $cartId");
-
     final token = await getToken();
 
     final response = await http.post(
@@ -130,13 +127,9 @@ class CartService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      print("✅ Cancel berhasil");
       return jsonDecode(response.body);
     } else {
       final errorMessage = jsonDecode(response.body);
-      print(
-        "❌ Gagal Batalkan Cart: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
-      );
       throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
     }
   }
@@ -150,14 +143,12 @@ class CartService {
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
-      print("✅ Berhasil mendapatkan porter: ${jsonData['message']}");
       return PorterResult.fromJson(jsonData);
     } else {
       final errorMessage = jsonDecode(response.body);
-      print(
-        "❌ Gagal mendapatkan porter: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
+      throw Exception(
+        'Gagal mengambil data porter: ${errorMessage['message']}',
       );
-      throw Exception('Gagal mengambil data porter');
     }
   }
 
@@ -172,14 +163,10 @@ class CartService {
     if (response.statusCode == 200) {
       final jsonData = jsonDecode(response.body);
       final List<dynamic> data = jsonData['data'];
-
-      print("✅ Berhasil mengambil delivery points: ${data.length} lokasi");
-
       return data.map((item) => DeliveryPoint.fromJson(item)).toList();
     } else {
       final error = jsonDecode(response.body);
-      print("❌ Gagal mengambil delivery points: ${error['message']}");
-      throw Exception('Gagal mengambil delivery points');
+      throw Exception('Gagal mengambil delivery points: ${error['message']}');
     }
   }
 

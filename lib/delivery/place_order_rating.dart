@@ -5,32 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:petraporter_buyer/app_shell.dart';
 import 'package:petraporter_buyer/models/porter.dart';
 import '../services/cart_service.dart';
+import '../models/history.dart'; // Import history untuk model OrderItem
 
 // --- UI Theming ---
 const Color _primaryColor = Color(0xFFFF7622);
 const Color _backgroundColor = Color(0xFFF8F9FA);
 
-/*
-  --- SARAN UNTUK TRANSISI DARI PLACE ORDER ---
-  Untuk mendapatkan efek transisi yang bagus saat membuka halaman ini,
-  Anda bisa memanggilnya dari halaman sebelumnya (misal: halaman cart) menggunakan
-  PageRouteBuilder seperti ini:
-
-  Navigator.push(
-    context,
-    PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => SearchingPorterPage(orderId: yourOrderId),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      transitionDuration: const Duration(milliseconds: 400),
-    )
-  );
-*/
-
-// ===================================================================
-// Halaman 1: Mencari & Menunggu Konfirmasi Porter (UI DIROMBAK)
-// ===================================================================
+// Halaman SearchingPorterPage tidak diubah, hanya PorterFoundPage dan RatingPage
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
   const SearchingPorterPage({Key? key, required this.orderId})
@@ -42,7 +23,6 @@ class SearchingPorterPage extends StatefulWidget {
 
 class _SearchingPorterPageState extends State<SearchingPorterPage>
     with TickerProviderStateMixin {
-  // Menggunakan TickerProviderStateMixin untuk banyak controller
   late AnimationController _sonarAnimationController;
   late AnimationController _fadeAnimationController;
   late Animation<double> _sonarAnimation;
@@ -115,9 +95,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     }
   }
 
-  // =======================================================================
-  // LOGIKA TIDAK DIUBAH
-  // =======================================================================
   Future<void> _checkOrderStatus() async {
     if (!mounted) return;
 
@@ -144,7 +121,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
       if (hasPorterAccepted || messageConfirmsPorter) {
         _stopPolling();
 
-        // --- PERUBAHAN --- Transisi ke PorterFoundPage dibuat lebih menarik
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
@@ -160,7 +136,6 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
               secondaryAnimation,
               child,
             ) {
-              // Efek fade-in dan scale-up untuk halaman berikutnya
               return FadeTransition(
                 opacity: animation,
                 child: ScaleTransition(
@@ -448,7 +423,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
 }
 
 // ===================================================================
-// HALAMAN 2 (PorterFoundPage) - TIDAK DIUBAH (KECUALI NAVIGASI KE RATING)
+// HALAMAN 2 (PorterFoundPage) - UI DIROMBAK
 // ===================================================================
 class PorterFoundPage extends StatefulWidget {
   final int orderId;
@@ -515,13 +490,13 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                   children: [
                     Center(
                       child: Text(
-                        "Order Details",
+                        "Detail Pesanan",
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Center(child: Text("ID: #${porter.orderId}")),
+                    Center(child: Text("ID Pesanan: #${porter.orderId}")),
                     const Divider(height: 30),
                     Expanded(
                       child: SingleChildScrollView(
@@ -539,6 +514,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                       fontSize: 16,
                                     ),
                                   ),
+                                  // --- PERUBAHAN --- Menampilkan catatan tenant
                                   if (resto.note != null &&
                                       resto.note!.isNotEmpty)
                                     Padding(
@@ -547,7 +523,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                         bottom: 8,
                                       ),
                                       child: Text(
-                                        '"${resto.note!}"',
+                                        'Catatan Tenant: "${resto.note!}"',
                                         style: const TextStyle(
                                           color: Colors.black54,
                                           fontStyle: FontStyle.italic,
@@ -559,17 +535,46 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                     (item) => Padding(
                                       padding: const EdgeInsets.only(
                                         bottom: 8.0,
+                                        left: 8.0,
                                       ),
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text('${item.quantity}x'),
-                                          const SizedBox(width: 16),
-                                          Expanded(child: Text(item.name)),
-                                          Text(
-                                            currencyFormatter.format(
-                                              item.price,
-                                            ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '${item.quantity}x',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(child: Text(item.name)),
+                                              Text(
+                                                currencyFormatter.format(
+                                                  item.price,
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                          // --- PERUBAHAN --- Menampilkan catatan item
+                                          if (item.notes != null &&
+                                              item.notes!.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 35,
+                                                top: 4,
+                                              ),
+                                              child: Text(
+                                                'Catatan: "${item.notes!}"',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontStyle: FontStyle.italic,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -609,7 +614,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                       child: TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text(
-                          'Close',
+                          'Tutup',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ),
@@ -625,21 +630,17 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _backgroundColor,
         elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          'Tracking Order',
-          style: TextStyle(
-            fontFamily: 'Sen',
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          'Lacak Pesanan Anda',
+          style: TextStyle(fontFamily: 'Sen', fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.close, color: Colors.black),
           onPressed:
               () => Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const AppShell()),
@@ -652,7 +653,9 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               snapshot.data == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: _primaryColor),
+            );
           }
           if (snapshot.hasError || !snapshot.hasData) {
             return Center(
@@ -664,18 +667,14 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
 
           final porter = snapshot.data!;
           return ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(16),
             children: [
               _buildPorterInfo(porter),
-              const SizedBox(height: 24),
-              _buildViewOrderButton(context, porter),
-              const SizedBox(height: 24),
-              const Divider(thickness: 1.5),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               _buildPaymentSection(porter),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               _buildDeliverySteps(porter),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
               _buildRateButton(context, porter),
             ],
           );
@@ -685,139 +684,127 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   Widget _buildPorterInfo(PorterResult porter) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                porter.porterName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Sen',
-                ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 35,
+              backgroundImage: AssetImage(_getPorterPhoto(porter.porterName)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Porter Anda",
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  Text(
+                    porter.porterName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    porter.porterDepartment,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                  Text(
+                    porter.porterNrp,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                porter.porterNrp,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontFamily: 'Sen',
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                porter.porterDepartment,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontFamily: 'Sen',
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildViewOrderButton(BuildContext context, PorterResult porter) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        icon: const Icon(Icons.receipt_long_outlined),
-        label: const Text('Lihat Detail Pesanan'),
-        onPressed: () => _showOrderDetailsDialog(context, porter),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.info_outline, color: _primaryColor),
+              onPressed: () => _showOrderDetailsDialog(context, porter),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildPaymentSection(PorterResult porter) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'TOTAL PAYMENT',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey,
-          ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Detail Pembayaran',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildPriceRow(
+              'Subtotal',
+              currencyFormatter.format(_parseAmountToNum(porter.totalPrice)),
+            ),
+            _buildPriceRow(
+              'Ongkos Kirim',
+              currencyFormatter.format(_parseAmountToNum(porter.shippingCost)),
+            ),
+            const Divider(height: 24),
+            _buildPriceRow(
+              'TOTAL',
+              currencyFormatter.format(_parseAmountToNum(porter.grandTotal)),
+              bold: true,
+            ),
+            const SizedBox(height: 16),
+            _buildCopyableInfo(
+              porter.porterName,
+              porter.porterNrp,
+            ), // Menggunakan NRP sebagai nomor rekening
+          ],
         ),
-        const SizedBox(height: 10),
-        _buildPriceRow(
-          'Total Price',
-          currencyFormatter.format(_parseAmountToNum(porter.totalPrice)),
-        ),
-        _buildPriceRow(
-          'Delivery Fee',
-          currencyFormatter.format(_parseAmountToNum(porter.shippingCost)),
-        ),
-        const Divider(height: 24),
-        _buildPriceRow(
-          'TOTAL',
-          currencyFormatter.format(_parseAmountToNum(porter.grandTotal)),
-          bold: true,
-        ),
-        const SizedBox(height: 20),
-        _buildCopyableInfo(porter.porterNrp, 'A.N ${porter.porterName}'),
-      ],
+      ),
     );
   }
 
-  Widget _buildCopyableInfo(String accountNumber, String accountName) {
+  Widget _buildCopyableInfo(String accountName, String accountNumber) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF7622).withOpacity(0.1),
+        color: _primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _primaryColor.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                accountNumber,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  accountNumber,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              Text(accountName, style: TextStyle(color: Colors.grey.shade700)),
-            ],
+                Text(
+                  "A.N. $accountName",
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+              ],
+            ),
           ),
-          TextButton(
+          IconButton(
+            icon: const Icon(Icons.copy_all_outlined, color: _primaryColor),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: accountNumber));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Nomor rekening disalin!')),
               );
             },
-            style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFFFF7622),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('COPY'),
           ),
         ],
       ),
@@ -825,31 +812,31 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   Widget _buildDeliverySteps(PorterResult porter) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'STATUS PENGIRIMAN',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey,
-          ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Status Pengiriman',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            ...List.generate(porter.status.length, (index) {
+              final step = porter.status[index];
+              return _buildProgressStep(
+                step: step,
+                isFirst: index == 0,
+                isLast: index == porter.status.length - 1,
+              );
+            }),
+          ],
         ),
-        const SizedBox(height: 16),
-        ...List.generate(porter.status.length, (index) {
-          final step = porter.status[index];
-          return _buildProgressStep(
-            step: step,
-            isFirst: index == 0,
-            isLast: index == porter.status.length - 1,
-          );
-        }),
-      ],
+      ),
     );
   }
 
-  // --- PERUBAHAN --- Transisi ke RatingPage dibuat lebih menarik
   Widget _buildRateButton(BuildContext context, PorterResult porter) {
     final bool isFinished = porter.status.any(
       (s) => s.label.toLowerCase().contains('sampai') && s.key,
@@ -857,7 +844,12 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     if (!isFinished) return const SizedBox.shrink();
 
     return Center(
-      child: ElevatedButton(
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.star_border_rounded, color: Colors.white),
+        label: const Text(
+          'Beri Penilaian',
+          style: TextStyle(color: Colors.white),
+        ),
         onPressed:
             () => Navigator.push(
               context,
@@ -871,7 +863,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                   secondaryAnimation,
                   child,
                 ) {
-                  // Efek slide-up untuk halaman rating
                   const begin = Offset(0.0, 1.0);
                   const end = Offset.zero;
                   final tween = Tween(
@@ -886,18 +877,10 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
               ),
             ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFF7A00),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          backgroundColor: _primaryColor,
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: const Text(
-          'Rate Order',
-          style: TextStyle(
-            fontSize: 16,
-            fontFamily: 'Sen',
-            color: Colors.white,
           ),
         ),
       ),
@@ -936,7 +919,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
     required bool isFirst,
     required bool isLast,
   }) {
-    const activeColor = Color(0xFFFF7622);
+    const activeColor = _primaryColor;
     final inactiveColor = Colors.grey.shade300;
 
     return IntrinsicHeight(
@@ -997,7 +980,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
 }
 
 // ===================================================================
-// HALAMAN 3 (RatingPage) - UI DIROMBAK & REVIEW DIHILANGKAN
+// HALAMAN 3 (RatingPage)
 // ===================================================================
 class RatingPage extends StatefulWidget {
   final int orderId;
@@ -1010,7 +993,6 @@ class _RatingPageState extends State<RatingPage> {
   int _selectedStars = 5;
   bool _isLoading = false;
 
-  // Map untuk deskripsi rating
   final Map<int, String> _ratingDescriptions = {
     1: 'Sangat Buruk',
     2: 'Buruk',
@@ -1019,7 +1001,6 @@ class _RatingPageState extends State<RatingPage> {
     5: 'Luar Biasa!',
   };
 
-  // --- LOGIKA DIPERBARUI --- Parameter review dihilangkan
   Future<void> _submitRating() async {
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -1029,7 +1010,7 @@ class _RatingPageState extends State<RatingPage> {
       final result = await CartService.ratePorter(
         orderId: widget.orderId,
         rating: _selectedStars,
-        review: '', // Review dihilangkan, kirim string kosong
+        review: '', // Review dihilangkan
       );
 
       messenger.showSnackBar(

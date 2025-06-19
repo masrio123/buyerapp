@@ -22,18 +22,26 @@ class _MyCartPageState extends State<MyCartPage> {
   bool _isLoadingLocations = true;
   bool _isPlacingOrder = false;
 
-  // Controller untuk notes, bisa diaktifkan kembali jika diperlukan.
-  // final Map<String, TextEditingController> _notesControllers = {};
+  final Map<int, TextEditingController> _notesControllers = {};
 
   @override
   void initState() {
     super.initState();
     _fetchDeliveryPoints();
+    // Inisialisasi controller untuk setiap item yang sudah ada
+    for (var vendor in widget.cart.vendors) {
+      for (var cartItem in widget.cart.itemsOf(vendor)) {
+        final productId = cartItem.product['id'] as int;
+        _notesControllers[productId] = TextEditingController(
+          text: cartItem.note,
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    // _notesControllers.values.forEach((controller) => controller.dispose());
+    _notesControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
   }
 
@@ -63,27 +71,44 @@ class _MyCartPageState extends State<MyCartPage> {
     setState(() => _isPlacingOrder = true);
 
     try {
+      // 1. Buat keranjang baru di server
       final cartResult = await CartService.createCart(_selectedPoint!.id);
       final int cartId = cartResult['cart']['id'];
 
+      // 2. Tambahkan semua item dari local cart ke keranjang di server
       for (var vendor in widget.cart.vendors) {
-        for (var item in widget.cart.itemsOf(vendor)) {
-          // Jika fitur notes diaktifkan, kirim notes dari _notesControllers
+        for (var cartItem in widget.cart.itemsOf(vendor)) {
+          final productId = cartItem.product['id'] as int;
           await CartService.addToCart(
             cartId,
-            item['id'],
+            productId,
             1,
-          ); // Kirim string kosong untuk notes
+          ); // Asumsi kuantitas selalu 1 per item
         }
       }
 
-      final checkoutResult = await CartService.checkoutCart(cartId);
+      // 3. Kumpulkan semua notes dari text controllers
+      final List<Map<String, dynamic>> notesPayload = [];
+      for (var cartItem in widget.cart.itemsOf(widget.cart.vendors.first)) {
+        // Cukup loop sekali untuk semua item
+        final productId = cartItem.product['id'] as int;
+        final noteText = _notesControllers[productId]?.text.trim();
+
+        if (noteText != null && noteText.isNotEmpty) {
+          notesPayload.add({'product_id': productId, 'note': noteText});
+        }
+      }
+
+      // 4. Lakukan checkout dengan mengirim ID keranjang dan payload notes
+      final checkoutResult = await CartService.checkoutCart(
+        cartId,
+        notesPayload,
+      );
       final orderData = checkoutResult['order'];
       final int newOrderId = orderData['id'];
 
       widget.onClear();
       if (mounted) {
-        // FIX: Menghapus parameter yang tidak lagi digunakan di SearchingPorterPage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -173,39 +198,80 @@ class _MyCartPageState extends State<MyCartPage> {
                   ),
                   children: [
                     ...List.generate(items.length, (index) {
-                      final item = items[index];
-                      return ListTile(
-                        title: Text(
-                          item['name'],
-                          style: const TextStyle(fontFamily: 'Sen'),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatCurrency(item['price']),
-                              style: const TextStyle(
-                                fontFamily: 'Sen',
-                                fontSize: 16,
+                      final cartItem = items[index];
+                      final itemData = cartItem.product;
+                      final productId = itemData['id'] as int;
+
+                      if (_notesControllers[productId] == null) {
+                        _notesControllers[productId] = TextEditingController(
+                          text: cartItem.note,
+                        );
+                      }
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            title: Text(
+                              itemData['name'],
+                              style: const TextStyle(fontFamily: 'Sen'),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _formatCurrency(itemData['price']),
+                                  style: const TextStyle(
+                                    fontFamily: 'Sen',
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _notesControllers.remove(productId);
+                                      widget.cart.removeItemByVendorAndIndex(
+                                        vendor,
+                                        index,
+                                      );
+                                      widget.onClear();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: TextField(
+                              controller: _notesControllers[productId],
+                              style: const TextStyle(fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: 'Tambahkan catatan...',
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFFF7622),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  widget.cart.removeItemByVendorAndIndex(
-                                    vendor,
-                                    index,
-                                  );
-                                  widget.onClear();
-                                });
-                              },
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     }),
                   ],

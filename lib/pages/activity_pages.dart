@@ -19,7 +19,7 @@ class _ActivityPagesState extends State<ActivityPages> {
   late Future<List<Order>> _futureOrders;
   final currencyFormatter = NumberFormat.currency(
     locale: 'id_ID',
-    symbol: 'Rp',
+    symbol: 'Rp ',
     decimalDigits: 0,
   );
 
@@ -151,6 +151,15 @@ class _ActivityPagesState extends State<ActivityPages> {
                     }
 
                     final orders = snapshot.data!;
+
+                    // --- PERUBAHAN: Mengurutkan pesanan berdasarkan ID ---
+                    // Menggunakan tryParse untuk keamanan jika ID tidak valid
+                    orders.sort((a, b) {
+                      final idA = int.tryParse(a.id) ?? 0;
+                      final idB = int.tryParse(b.id) ?? 0;
+                      return idB.compareTo(idA);
+                    });
+
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       itemCount: orders.length,
@@ -168,7 +177,11 @@ class _ActivityPagesState extends State<ActivityPages> {
                           child: ListTile(
                             leading: _buildStatusIcon(order.orderStatus),
                             title: Text(
-                              order.date.isNotEmpty ? order.date : '-',
+                              order.date.isNotEmpty
+                                  ? DateFormat(
+                                    'd MMM y, HH:mm',
+                                  ).format(DateTime.parse(order.date))
+                                  : '-',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -272,7 +285,7 @@ class _ActivityPagesState extends State<ActivityPages> {
                                         bottom: 8,
                                       ),
                                       child: Text(
-                                        '“${resto.note!}”',
+                                        'Catatan Tenant: "${resto.note!}"',
                                         style: const TextStyle(
                                           color: Colors.black54,
                                           fontStyle: FontStyle.italic,
@@ -285,16 +298,41 @@ class _ActivityPagesState extends State<ActivityPages> {
                                       padding: const EdgeInsets.only(
                                         bottom: 8.0,
                                       ),
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text('${item.quantity}x'),
-                                          const SizedBox(width: 16),
-                                          Expanded(child: Text(item.name)),
-                                          Text(
-                                            currencyFormatter.format(
-                                              item.price,
-                                            ),
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text('${item.quantity}x'),
+                                              const SizedBox(width: 16),
+                                              Expanded(child: Text(item.name)),
+                                              Text(
+                                                currencyFormatter.format(
+                                                  item.price,
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                          // Menampilkan catatan item
+                                          if (item.notes != null &&
+                                              item.notes!.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 32,
+                                                top: 4,
+                                              ),
+                                              child: Text(
+                                                'Catatan: "${item.notes!}"',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontStyle: FontStyle.italic,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -307,7 +345,6 @@ class _ActivityPagesState extends State<ActivityPages> {
                         ),
                       ),
                     ),
-                    // FIX: Menambahkan kembali bagian Total Payment yang hilang
                     const Divider(height: 30),
                     const Text(
                       "TOTAL PAYMENT",

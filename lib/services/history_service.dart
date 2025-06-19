@@ -21,37 +21,9 @@ class HistoryService {
     final List<dynamic> data = responseJson['data'] ?? [];
 
     return data.map<Order>((orderJson) {
-      return Order(
-        date: orderJson['order_date'] ?? '',
-        porter:
-            orderJson['porter'] != null
-                ? orderJson['porter']['name']
-                : 'Belum Ada Porter',
-        id: orderJson['order_id']?.toString() ?? '-',
-        orderStatus: orderJson['order_status'],
-        totalPrice: orderJson['total_price'],
-        shippingCost: orderJson['shipping_cost'],
-        grandTotal: orderJson['grand_total'] ?? 0,
-        items:
-            (orderJson['items'] as List<dynamic>).map<RestaurantOrder>((
-              tenantJson,
-            ) {
-              return RestaurantOrder(
-                name: tenantJson['tenant_name'] ?? '',
-                note: tenantJson['note'],
-                items:
-                    (tenantJson['items'] as List<dynamic>).map<OrderItem>((
-                      itemJson,
-                    ) {
-                      return OrderItem(
-                        name: itemJson['product_name'] ?? '',
-                        quantity: itemJson['quantity'] ?? 0,
-                        price: itemJson['price'] ?? 0,
-                      );
-                    }).toList(),
-              );
-            }).toList(),
-      );
+      return Order.fromJson(
+        orderJson,
+      ); // Menggunakan factory constructor yang sudah ada
     }).toList();
   }
 

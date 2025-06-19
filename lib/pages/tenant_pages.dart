@@ -5,7 +5,6 @@ import '../models/tenant.dart';
 import '../services/home_service.dart';
 import '../models/cart_model.dart';
 
-// --- PERUBAHAN --- Menambahkan konstanta warna untuk konsistensi
 const Color _primaryColor = Color(0xFFFF7622);
 
 class TenantPages extends StatefulWidget {
@@ -49,18 +48,12 @@ class _TenantPageState extends State<TenantPages> {
       print('Error fetching tenants: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        // --- PERUBAHAN --- Snackbar dibuat floating
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal memuat vendor: $e'),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.fromLTRB(
-              20,
-              10,
-              20,
-              70,
-            ), // Memberi margin dari FAB
+            margin: const EdgeInsets.fromLTRB(20, 10, 20, 70),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -513,12 +506,13 @@ class _VendorMenuTenantPageState extends State<VendorMenuTenantPage> {
                                                     ),
                                               );
                                               if (confirm == true) {
+                                                // --- FIX DI SINI ---
+                                                // Bungkus 'menu' dengan CartItem sebelum menambahkannya
                                                 widget.cart.addItem(
                                                   widget.vendorName,
-                                                  menu,
+                                                  CartItem(product: menu),
                                                 );
                                                 widget.onCartUpdated();
-                                                // --- PERUBAHAN --- Snackbar dibuat floating
                                                 ScaffoldMessenger.of(
                                                   context,
                                                 ).showSnackBar(

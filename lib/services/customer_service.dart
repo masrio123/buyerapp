@@ -19,32 +19,25 @@ class CustomerService {
     final token = await getToken();
     final userId = await getUserId();
 
+    if (token == null || userId == null) {
+      throw Exception('Token atau User ID tidak ditemukan.');
+    }
+
     final response = await http.get(
       Uri.parse('$baseURL/customers/$userId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
+      // Logika parsing sekarang sepenuhnya ditangani oleh Customer.fromJson
       return Customer.fromJson(data);
     } else {
-      throw Exception('Failed to load customer detail');
+      throw Exception('Failed to load customer detail: ${response.statusCode}');
     }
   }
 
-  static String getBankName(int id) {
-    switch (id) {
-      case 1:
-        return "BRI";
-      case 2:
-        return "BCA";
-      case 3:
-        return "Mandiri";
-      default:
-        return "Lainnya";
-    }
-  }
+  // --- PERUBAHAN ---
+  // Fungsi ini dihapus karena sudah tidak relevan.
+  // static String getBankName(int id) { ... }
 }

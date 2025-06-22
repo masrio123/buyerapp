@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/customer.dart';
 import '../services/customer_service.dart';
-// Note: These imports might need to be adjusted based on your project structure.
-// import 'main_pages.dart';
-// import 'activity_pages.dart';
 
-// --- PERUBAHAN --- Warna primer dan sekunder untuk tema baru
 const Color _primaryColor = Color(0xFFFF7622);
-const Color _backgroundColor = Color(0xFFFFFFFF); // Background putih bersih
+const Color _backgroundColor = Color(0xFFFFFFFF);
 const Color _textColor = Color(0xFF333333);
 const Color _subtleTextColor = Colors.grey;
 
@@ -28,10 +24,9 @@ class _ProfilePageState extends State<ProfilePage> {
     _fetchCustomer();
   }
 
-  /// Mengambil data detail customer dari service.
   Future<void> _fetchCustomer() async {
-    // Simulasi loading
-    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() => _isLoading = true);
     try {
       final customer = await CustomerService.fetchCustomerDetail();
       if (mounted) {
@@ -43,18 +38,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       print('Gagal mengambil data customer: $e');
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Gagal memuat data profile.'),
+          const SnackBar(
+            content: Text('Gagal memuat data profil.'),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
           ),
         );
       }
@@ -115,10 +104,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
                 ),
                 onPressed: _fetchCustomer,
                 icon: const Icon(Icons.refresh),
@@ -137,13 +122,11 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildProfileHeader(),
           const SizedBox(height: 32),
           _buildInfoDetails(),
-          // --- PERUBAHAN --- Tombol logout dihilangkan dari sini
         ],
       ),
     );
   }
 
-  /// Header profil yang lebih ringkas
   Widget _buildProfileHeader() {
     return Column(
       children: [
@@ -171,7 +154,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  /// Widget baru untuk menampilkan detail informasi dalam kartu
   Widget _buildInfoDetails() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -190,14 +172,27 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Column(
         children: [
           _buildInfoRow(
-            label: "Departemen",
+            label: "Jurusan",
             value: _customer!.department.departmentName,
+            icon: Icons.school_outlined,
+          ),
+          const Divider(height: 1),
+          // --- PERUBAHAN: Menampilkan detail bank dari 3 field baru ---
+          _buildInfoRow(
+            label: "Nama Bank",
+            value: _customer!.bankName,
             icon: Icons.business_center_outlined,
           ),
           const Divider(height: 1),
           _buildInfoRow(
+            label: "Atas Nama",
+            value: _customer!.username,
+            icon: Icons.person_outline_rounded,
+          ),
+          const Divider(height: 1),
+          _buildInfoRow(
             label: "Nomor Rekening",
-            value: _customer!.bankUser.accountNumber,
+            value: _customer!.accountNumber,
             icon: Icons.account_balance_wallet_outlined,
           ),
         ],
@@ -205,7 +200,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  /// Widget untuk satu baris informasi
   Widget _buildInfoRow({
     required String label,
     required String value,
@@ -219,18 +213,20 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(width: 16),
           Text(label, style: const TextStyle(fontSize: 16, color: _textColor)),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _subtleTextColor,
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: _subtleTextColor,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-
-  // --- PERUBAHAN --- Widget tombol logout dihapus seluruhnya
 }

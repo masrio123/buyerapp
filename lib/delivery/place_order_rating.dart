@@ -1,17 +1,19 @@
+// File: lib/delivery/place_order_rating.dart (dan halaman terkait)
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:petraporter_buyer/app_shell.dart';
 import 'package:petraporter_buyer/models/porter.dart';
+import 'package:petraporter_buyer/pages/chat_pages.dart';
 import '../services/cart_service.dart';
-import '../models/history.dart'; // Import history untuk model OrderItem
 
 // --- UI Theming ---
 const Color _primaryColor = Color(0xFFFF7622);
 const Color _backgroundColor = Color(0xFFF8F9FA);
 
-// Halaman SearchingPorterPage tidak diubah, hanya PorterFoundPage dan RatingPage
+// Halaman SearchingPorterPage tidak diubah
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
   const SearchingPorterPage({Key? key, required this.orderId})
@@ -332,9 +334,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
                     size: 100,
                     color: Colors.grey,
                   ),
-
                 const SizedBox(height: 40),
-
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Text(
@@ -423,7 +423,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
 }
 
 // ===================================================================
-// HALAMAN 2 (PorterFoundPage) - UI DIROMBAK
+// HALAMAN 2 (PorterFoundPage)
 // ===================================================================
 class PorterFoundPage extends StatefulWidget {
   final int orderId;
@@ -514,7 +514,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                       fontSize: 16,
                                     ),
                                   ),
-                                  // --- PERUBAHAN --- Menampilkan catatan tenant
                                   if (resto.note != null &&
                                       resto.note!.isNotEmpty)
                                     Padding(
@@ -558,7 +557,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                                               ),
                                             ],
                                           ),
-                                          // --- PERUBAHAN --- Menampilkan catatan item
                                           if (item.notes != null &&
                                               item.notes!.isNotEmpty)
                                             Padding(
@@ -684,6 +682,15 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   Widget _buildPorterInfo(PorterResult porter) {
+    final bool canChat = porter.status.any((s) {
+      final label = s.label.toLowerCase();
+      return (label.contains('received') ||
+              label.contains('diterima') ||
+              label.contains('on-delivery') ||
+              label.contains('diantar')) &&
+          s.key;
+    });
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -721,9 +728,44 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.info_outline, color: _primaryColor),
-              onPressed: () => _showOrderDetailsDialog(context, porter),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (canChat)
+                  SizedBox(
+                    width: 48.0, // Ukuran standar touch target
+                    height: 48.0,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.chat_bubble_outline,
+                        color: _primaryColor,
+                      ),
+                      tooltip: 'Chat Porter',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            // --- PERBAIKAN FINAL ---
+                            // Mengirim nama porter sebagai recipientName
+                            builder:
+                                (context) => ChatPage(
+                                  orderId: porter.orderId,
+                                  recipientName:
+                                      porter
+                                          .porterName, // Menggunakan nama porter
+                                  recipientAvatarUrl: 'assets/avatar.png',
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline, color: _primaryColor),
+                  tooltip: 'Detail Pesanan',
+                  onPressed: () => _showOrderDetailsDialog(context, porter),
+                ),
+              ],
             ),
           ],
         ),

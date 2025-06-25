@@ -37,7 +37,34 @@ class CustomerService {
     }
   }
 
-  // --- PERUBAHAN ---
-  // Fungsi ini dihapus karena sudah tidak relevan.
-  // static String getBankName(int id) { ... }
+  static Future<bool> updateCustomerBankDetails({
+    required String bankName,
+    required String accountNumber,
+    required String username,
+  }) async {
+    final token = await getToken();
+    final customerId = await getUserId();
+    if (token == null || customerId == null) {
+      throw Exception('Token atau Customer ID tidak ditemukan.');
+    }
+
+    final response = await http.put(
+      Uri.parse('$baseURL/customers/$customerId/update-bank'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'bank_name': bankName,
+        'account_numbers': accountNumber, // <-- HARUS plural!
+        'username': username,
+      }),
+    );
+
+    print("StatusCode: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+
+    return response.statusCode == 200;
+  }
 }

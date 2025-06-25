@@ -1,4 +1,4 @@
-// File: lib/delivery/place_order_rating.dart (dan halaman terkait)
+// KODE LENGKAP DALAM SATU FILE DART (SUDAH DIPERBAIKI)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -6,14 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:petraporter_buyer/app_shell.dart';
 import 'package:petraporter_buyer/models/porter.dart';
-import 'package:petraporter_buyer/pages/chat_pages.dart';
+import '../pages/chat_pages.dart';
 import '../services/cart_service.dart';
 
 // --- UI Theming ---
 const Color _primaryColor = Color(0xFFFF7622);
 const Color _backgroundColor = Color(0xFFF8F9FA);
 
-// Halaman SearchingPorterPage tidak diubah
+// ===================================================================
+// HALAMAN 1 (SearchingPorterPage)
+// ===================================================================
 class SearchingPorterPage extends StatefulWidget {
   final int orderId;
   const SearchingPorterPage({Key? key, required this.orderId})
@@ -70,7 +72,7 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
   void _startPolling() {
     if (!mounted) return;
     setState(() {
-      _statusMessage = 'Mencari Porter Terbaik Untukmu...';
+      _statusMessage = 'Mencari porter yang tersedia...';
       _isPollingActive = true;
       _isTerminalFailure = false;
       if (!_sonarAnimationController.isAnimating) {
@@ -104,7 +106,16 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
       final result = await CartService.searchPorter(widget.orderId);
       if (!mounted) return;
 
+      if (result.success == false) {
+        setState(() {
+          _statusMessage = result.message;
+        });
+        return;
+      }
+
       final message = result.message.toLowerCase();
+
+      // Pengecekan status apakah sudah diterima oleh porter
       final bool hasPorterAccepted = result.status.any((status) {
         final label = status.label.toLowerCase();
         return (label.contains('received') ||
@@ -114,15 +125,10 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
             status.key == true;
       });
 
-      final bool messageConfirmsPorter =
-          message.contains('porter ditemukan') ||
-          message.contains('porter telah menerima') ||
-          message.contains('order dikonfirmasi') ||
-          message.contains('porter assigned');
-
-      if (hasPorterAccepted || messageConfirmsPorter) {
+      // --- PERBAIKAN UTAMA DI SINI ---
+      // Navigasi HANYA jika status sudah diterima, bukan karena pesan dari server.
+      if (hasPorterAccepted) {
         _stopPolling();
-
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
@@ -153,12 +159,12 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
             },
           ),
         );
-        return;
+        return; // Hentikan eksekusi setelah navigasi
       }
 
+      // Logika untuk menampilkan pesan kegagalan permanen (mis. semua porter menolak)
       final bool isTotalFailure =
           message.contains("tidak ada porter yang tersedia") ||
-          message.contains("tidak ada porter online") ||
           message.contains("semua porter menolak") ||
           message.contains("timeout") ||
           message.contains("gagal menemukan porter");
@@ -166,30 +172,35 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
       if (isTotalFailure) {
         _stopPolling();
         setState(() {
-          _statusMessage =
-              "Gagal menemukan porter. Silakan coba lagi atau batalkan pesanan.";
+          _statusMessage = result.message; // Gunakan pesan dari server
           _isTerminalFailure = true;
         });
         _showSearchOrCancelDialog();
         return;
       }
 
+      // Logika untuk memperbarui teks status di layar pencarian
       String updatedMessage = result.message;
-      if (updatedMessage.isEmpty || updatedMessage == result.message) {
-        final bool hasPorterInProcess = result.status.any((status) {
-          final label = status.label.toLowerCase();
-          return (label.contains('waiting') ||
-                  label.contains('menunggu') ||
-                  label.contains('processing') ||
-                  label.contains('finding')) &&
-              status.key == true;
-        });
 
-        if (hasPorterInProcess) {
-          updatedMessage = 'Menunggu konfirmasi dari porter...';
-        } else {
-          updatedMessage = 'Mencari porter yang tersedia...';
-        }
+      // Cek apakah ada status yang menandakan sedang dalam proses menunggu
+      final bool hasPorterInProcess = result.status.any((status) {
+        final label = status.label.toLowerCase();
+        return (label.contains('waiting') ||
+                label.contains('menunggu') ||
+                label.contains('processing') ||
+                label.contains('finding')) &&
+            status.key == true;
+      });
+
+      // Jika ya, gunakan pesan yang lebih spesifik
+      if (hasPorterInProcess) {
+        updatedMessage = 'Menunggu konfirmasi dari porter...';
+      }
+      // Jika tidak ada status proses, dan pesan dari server tidak spesifik,
+      // maka kembalikan ke pesan default.
+      else if (message.contains('porter ditemukan') ||
+          message.contains('order sudah memiliki porter')) {
+        updatedMessage = 'Mencari porter yang tersedia...';
       }
 
       setState(() {
@@ -198,10 +209,39 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
     } catch (e) {
       _stopPolling();
       setState(() {
-        _statusMessage = "Terjadi kesalahan: ${e.toString()}";
+        _statusMessage =
+            "Gagal terhubung ke server. Periksa koneksi internet Anda.";
         _isTerminalFailure = true;
       });
       _showSearchOrCancelDialog();
+    }
+  }
+
+  Future<void> _performCancellation() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      _stopPolling();
+      await CartService.cancelOrder(widget.orderId);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("Order berhasil dibatalkan."),
+          backgroundColor: Colors.green,
+        ),
+      );
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text("Gagal membatalkan order: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      if (mounted) setState(() => _isTerminalFailure = true);
     }
   }
 
@@ -231,33 +271,8 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
           ),
     );
 
-    if (confirmCancel != true) return;
-
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
-    try {
-      setState(() => _isPollingActive = false);
-      _pollingTimer?.cancel();
-      await CartService.cancelOrder(widget.orderId);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text("Order berhasil dibatalkan."),
-          backgroundColor: Colors.green,
-        ),
-      );
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AppShell()),
-        (route) => false,
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text("Gagal membatalkan order: ${e.toString()}"),
-          backgroundColor: Colors.red,
-        ),
-      );
-      if (mounted) _startPolling();
+    if (confirmCancel == true) {
+      _performCancellation();
     }
   }
 
@@ -276,13 +291,10 @@ class _SearchingPorterPageState extends State<SearchingPorterPage>
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AppShell()),
-                  (route) => false,
-                );
+                _performCancellation();
               },
               child: const Text(
-                "Kembali ke Home",
+                "Batalkan Pesanan",
                 style: TextStyle(color: Colors.red),
               ),
             ),
@@ -662,7 +674,6 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
               ),
             );
           }
-
           final porter = snapshot.data!;
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -682,14 +693,19 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
   }
 
   Widget _buildPorterInfo(PorterResult porter) {
-    final bool canChat = porter.status.any((s) {
+    // --- PERBAIKAN MASALAH 1: LOGIKA TOMBOL CHAT ---
+    // Logika diubah menjadi: Tombol chat hilang HANYA JIKA order sudah selesai.
+    final bool isOrderFinished = porter.status.any((s) {
       final label = s.label.toLowerCase();
-      return (label.contains('received') ||
-              label.contains('diterima') ||
-              label.contains('on-delivery') ||
-              label.contains('diantar')) &&
+      return (label.contains('finished') ||
+              label.contains('selesai') ||
+              label.contains('sampai')) &&
           s.key;
     });
+
+    // canChat bernilai true jika order BELUM selesai
+    final bool canChat = !isOrderFinished;
+    // --- AKHIR PERBAIKAN ---
 
     return Card(
       child: Padding(
@@ -733,7 +749,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
               children: [
                 if (canChat)
                   SizedBox(
-                    width: 48.0, // Ukuran standar touch target
+                    width: 48.0,
                     height: 48.0,
                     child: IconButton(
                       icon: const Icon(
@@ -745,14 +761,10 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            // --- PERBAIKAN FINAL ---
-                            // Mengirim nama porter sebagai recipientName
                             builder:
                                 (context) => ChatPage(
                                   orderId: porter.orderId,
-                                  recipientName:
-                                      porter
-                                          .porterName, // Menggunakan nama porter
+                                  recipientName: porter.porterName,
                                   recipientAvatarUrl: 'assets/avatar.png',
                                 ),
                           ),
@@ -760,10 +772,14 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                       },
                     ),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.info_outline, color: _primaryColor),
-                  tooltip: 'Detail Pesanan',
-                  onPressed: () => _showOrderDetailsDialog(context, porter),
+                SizedBox(
+                  width: 48.0,
+                  height: 48.0,
+                  child: IconButton(
+                    icon: const Icon(Icons.info_outline, color: _primaryColor),
+                    tooltip: 'Detail Pesanan',
+                    onPressed: () => _showOrderDetailsDialog(context, porter),
+                  ),
                 ),
               ],
             ),
@@ -801,16 +817,21 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
             ),
             const SizedBox(height: 16),
             _buildCopyableInfo(
-              porter.porterName,
-              porter.porterNrp,
-            ), // Menggunakan NRP sebagai nomor rekening
+              porter.username,
+              porter.accountNumbers,
+              porter.bankName,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCopyableInfo(String accountName, String accountNumber) {
+  Widget _buildCopyableInfo(
+    String accountName,
+    String accountNumber,
+    String bankName,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -836,6 +857,7 @@ class _PorterFoundPageState extends State<PorterFoundPage> {
                   "A.N. $accountName",
                   style: TextStyle(color: Colors.grey.shade700),
                 ),
+                Text("Bank: $bankName"),
               ],
             ),
           ),
@@ -1034,6 +1056,7 @@ class RatingPage extends StatefulWidget {
 class _RatingPageState extends State<RatingPage> {
   int _selectedStars = 5;
   bool _isLoading = false;
+  final TextEditingController _reviewController = TextEditingController();
 
   final Map<int, String> _ratingDescriptions = {
     1: 'Sangat Buruk',
@@ -1052,7 +1075,7 @@ class _RatingPageState extends State<RatingPage> {
       final result = await CartService.ratePorter(
         orderId: widget.orderId,
         rating: _selectedStars,
-        review: '', // Review dihilangkan
+        review: _reviewController.text.trim(),
       );
 
       messenger.showSnackBar(
@@ -1077,6 +1100,7 @@ class _RatingPageState extends State<RatingPage> {
 
   @override
   void dispose() {
+    _reviewController.dispose();
     super.dispose();
   }
 
@@ -1151,7 +1175,26 @@ class _RatingPageState extends State<RatingPage> {
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 28),
+
+              // === Tambahkan Input Review di bawah rating ===
+              TextField(
+                controller: _reviewController,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: 250,
+                decoration: InputDecoration(
+                  labelText: 'Tulis review untuk porter (opsional)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.rate_review_outlined),
+                  filled: true,
+                  fillColor: Colors.white,
+                  counterText: '',
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              ),
               const Spacer(),
               SizedBox(
                 width: double.infinity,

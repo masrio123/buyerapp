@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 // Kelas untuk menyimpan satu item di dalam keranjang, beserta catatannya.
 class CartItem {
   final Map<String, dynamic> product;

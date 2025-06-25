@@ -17,6 +17,14 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Customer? _customer;
   bool _isLoading = true;
+  bool _isEditing = false;
+  bool _isSaving = false;
+
+  // Controller untuk field bank
+  final TextEditingController _bankNameController = TextEditingController();
+  final TextEditingController _accountNumberController =
+      TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
 
   @override
   void initState() {
@@ -32,6 +40,9 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           _customer = customer;
+          _bankNameController.text = customer.bankName;
+          _accountNumberController.text = customer.accountNumber;
+          _usernameController.text = customer.username;
           _isLoading = false;
         });
       }
@@ -48,6 +59,43 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       }
     }
+  }
+
+  Future<void> _saveBank() async {
+    setState(() => _isSaving = true);
+    final success = await CustomerService.updateCustomerBankDetails(
+      bankName: _bankNameController.text,
+      accountNumber: _accountNumberController.text,
+      username: _usernameController.text,
+    );
+    if (mounted) {
+      setState(() {
+        _isEditing = false;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? "Berhasil update data bank." : "Gagal update data bank.",
+          ),
+          backgroundColor: success ? Colors.green : Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (success) _fetchCustomer();
+    }
+  }
+
+  void _toggleEdit() {
+    setState(() => _isEditing = !_isEditing);
+  }
+
+  @override
+  void dispose() {
+    _bankNameController.dispose();
+    _accountNumberController.dispose();
+    _usernameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -115,15 +163,40 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    return SingleChildScrollView(
+    return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Column(
-        children: [
-          _buildProfileHeader(),
-          const SizedBox(height: 32),
-          _buildInfoDetails(),
-        ],
-      ),
+      children: [
+        _buildProfileHeader(),
+        const SizedBox(height: 32),
+        _buildInfoDetails(),
+        const SizedBox(height: 32),
+        if (_isSaving)
+          const Center(child: CircularProgressIndicator(color: _primaryColor)),
+        if (!_isSaving)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isEditing ? Colors.green : _primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: _isEditing ? _saveBank : _toggleEdit,
+              child: Text(
+                _isEditing ? 'Simpan Perubahan' : 'Edit Data Bank',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        if (_isEditing)
+          TextButton(onPressed: _toggleEdit, child: const Text("Batal")),
+      ],
     );
   }
 
@@ -177,23 +250,23 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.school_outlined,
           ),
           const Divider(height: 1),
-          // --- PERUBAHAN: Menampilkan detail bank dari 3 field baru ---
-          _buildInfoRow(
+          _buildBankInfoRow(
             label: "Nama Bank",
-            value: _customer!.bankName,
+            controller: _bankNameController,
             icon: Icons.business_center_outlined,
           ),
           const Divider(height: 1),
-          _buildInfoRow(
+          _buildBankInfoRow(
             label: "Atas Nama",
-            value: _customer!.username,
+            controller: _usernameController,
             icon: Icons.person_outline_rounded,
           ),
           const Divider(height: 1),
-          _buildInfoRow(
+          _buildBankInfoRow(
             label: "Nomor Rekening",
-            value: _customer!.accountNumber,
+            controller: _accountNumberController,
             icon: Icons.account_balance_wallet_outlined,
+            isNumeric: true,
           ),
         ],
       ),
@@ -224,6 +297,52 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: _subtleTextColor,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBankInfoRow({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isNumeric = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: _primaryColor, size: 24),
+          const SizedBox(width: 16),
+          Text(label, style: const TextStyle(fontSize: 16, color: _textColor)),
+          const Spacer(),
+          Expanded(
+            child:
+                _isEditing
+                    ? TextField(
+                      controller: controller,
+                      textAlign: TextAlign.end,
+                      keyboardType:
+                          isNumeric ? TextInputType.number : TextInputType.text,
+                      decoration: const InputDecoration.collapsed(
+                        hintText: '...',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _textColor,
+                      ),
+                    )
+                    : Text(
+                      controller.text,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _subtleTextColor,
+                      ),
+                    ),
           ),
         ],
       ),

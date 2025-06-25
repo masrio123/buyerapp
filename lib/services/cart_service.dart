@@ -21,13 +21,13 @@ class CartService {
     return prefs.getInt('selected_location_id') ?? 1;
   }
 
-  static Future<Map<String, dynamic>> createCart(int deliveriy_id) async {
+  static Future<Map<String, dynamic>> createCart(int deliveryId) async {
     final token = await getToken();
     final customer_id = await customerID();
     final tenantLocationId = await getLocationId();
 
     if (token == null || customer_id == null) {
-      throw Exception('Token or user ID not found');
+      throw Exception('Token atau ID Pengguna tidak ditemukan.');
     }
 
     final response = await http.post(
@@ -40,7 +40,7 @@ class CartService {
       body: jsonEncode({
         'customer_id': customer_id,
         'tenant_location_id': tenantLocationId,
-        'delivery_id': deliveriy_id,
+        'delivery_id': deliveryId,
       }),
     );
 
@@ -48,7 +48,8 @@ class CartService {
       final data = jsonDecode(response.body);
       return {'message': data['message'], 'cart': data['cart']};
     } else {
-      throw Exception('${response.body}');
+      final errorBody = jsonDecode(response.body);
+      throw Exception(errorBody['message'] ?? 'Gagal membuat keranjang.');
     }
   }
 
@@ -77,18 +78,17 @@ class CartService {
       return jsonDecode(response.body);
     } else {
       final errorMessage = jsonDecode(response.body);
-      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+      throw Exception(errorMessage['message'] ?? 'Gagal menambahkan item.');
     }
   }
 
+  // --- FUNGSI INI TELAH DIPERBAIKI ---
   static Future<Map<String, dynamic>> checkoutCart(
     int cartId,
     List<Map<String, dynamic>> notes,
   ) async {
     final token = await getToken();
     final body = jsonEncode({'notes': notes});
-
-    print("🛒 CHECKOUT PAYLOAD TO BE SENT: $body");
 
     final response = await http.post(
       Uri.parse('$baseURL/cart/$cartId/checkout'),
@@ -101,24 +101,31 @@ class CartService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      print("✅ Checkout berhasil");
       return jsonDecode(response.body);
     } else {
-      final errorMessage = jsonDecode(response.body);
-      print(
-        "❌ Gagal checkout: ${response.statusCode} - ${errorMessage['message'] ?? response.body}",
-      );
-      throw Exception(
-        'Checkout Gagal: ${errorMessage['message'] ?? 'Unknown error'}',
-      );
+      // Logika baru untuk menangani dan membersihkan pesan error
+      final errorBody = jsonDecode(response.body);
+      String serverMessage =
+          errorBody['message'] ?? 'Terjadi kesalahan tidak diketahui.';
+
+      // Cek jika pesan error spesifik tentang porter tidak tersedia
+      if (serverMessage.toLowerCase().contains('no porter available')) {
+        // Lemparkan exception dengan pesan yang bersih dan ramah pengguna
+        throw Exception(
+          "Tidak ada porter yang tersedia saat ini. Silakan coba lagi nanti.",
+        );
+      } else {
+        // Untuk error lain, lemparkan pesan yang lebih umum
+        throw Exception("Proses checkout gagal. Silakan coba lagi.");
+      }
     }
   }
 
-  static Future<Map<String, dynamic>> cancelOrder(int cartId) async {
+  static Future<Map<String, dynamic>> cancelOrder(int orderId) async {
     final token = await getToken();
 
     final response = await http.post(
-      Uri.parse('$baseURL/orders/cancel/$cartId'),
+      Uri.parse('$baseURL/orders/cancel/$orderId'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -130,7 +137,7 @@ class CartService {
       return jsonDecode(response.body);
     } else {
       final errorMessage = jsonDecode(response.body);
-      throw Exception('${errorMessage['message'] ?? 'Unknown error'}');
+      throw Exception(errorMessage['message'] ?? 'Gagal membatalkan pesanan.');
     }
   }
 
@@ -147,7 +154,7 @@ class CartService {
     } else {
       final errorMessage = jsonDecode(response.body);
       throw Exception(
-        'Gagal mengambil data porter: ${errorMessage['message']}',
+        errorMessage['message'] ?? 'Gagal mengambil data porter.',
       );
     }
   }
@@ -166,7 +173,7 @@ class CartService {
       return data.map((item) => DeliveryPoint.fromJson(item)).toList();
     } else {
       final error = jsonDecode(response.body);
-      throw Exception('Gagal mengambil delivery points: ${error['message']}');
+      throw Exception(error['message'] ?? 'Gagal mengambil titik pengantaran.');
     }
   }
 

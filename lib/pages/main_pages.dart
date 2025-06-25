@@ -22,7 +22,10 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  // _selectedLocationId sekarang melacak lokasi dari item di keranjang.
   int? _selectedLocationId;
+  String _selectedLocationName = '';
+
   List<TenantLocation> _locations = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -31,10 +34,12 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
-    loadTenantLocations();
+    // Memuat data lokasi dan juga lokasi terakhir yang tersimpan
+    // untuk sinkronisasi dengan state keranjang.
+    _initializePage();
   }
 
-  Future<void> loadTenantLocations() async {
+  Future<void> _initializePage() async {
     try {
       final locations = await HomeService.fetchTenantLocations();
       final savedLocationId = await _loadSavedLocationId();
@@ -43,8 +48,15 @@ class _MainPageState extends State<MainPage> {
         setState(() {
           _locations = locations;
           if (locations.isNotEmpty) {
+            // Set lokasi terpilih dari data yang tersimpan jika valid
             final exists = locations.any((l) => l.id == savedLocationId);
-            _selectedLocationId = exists ? savedLocationId : locations.first.id;
+            if (exists) {
+              _selectedLocationId = savedLocationId;
+              _selectedLocationName =
+                  locations
+                      .firstWhere((l) => l.id == savedLocationId)
+                      .locationName;
+            }
           }
           _isLoading = false;
         });
@@ -59,6 +71,7 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  // --- FUNGSI PERSISTENCE (SHARED PREFERENCES) ---
   Future<void> _saveSelectedLocationId(int id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('selected_location_id', id);
@@ -69,17 +82,7 @@ class _MainPageState extends State<MainPage> {
     return prefs.getInt('selected_location_id');
   }
 
-  String get _selectedLocationName {
-    if (_selectedLocationId == null || _locations.isEmpty) {
-      return 'Pilih Lokasi';
-    }
-    final loc = _locations.firstWhere(
-      (l) => l.id == _selectedLocationId,
-      orElse: () => TenantLocation(id: 0, locationName: 'Pilih Lokasi'),
-    );
-    return loc.locationName;
-  }
-
+  // --- FUNGSI LOGOUT ---
   void _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -92,119 +95,90 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  void _handleLocationChange(BuildContext dialogContext, int newLocationId) {
-    if (newLocationId != _selectedLocationId && _cart.totalItems > 0) {
-      _showConfirmClearCartDialog(dialogContext, newLocationId);
-    } else {
-      _changeLocation(dialogContext, newLocationId);
+  // --- LOGIKA UTAMA: PENANGANAN SAAT KARTU KANTIN DI-TAP ---
+  void _handleKantinTap(int tappedId, String tappedName) {
+    // Skenario 1: Keranjang kosong, atau pengguna memilih kantin yang sama
+    // dengan isi keranjang. Langsung masuk.
+    if (_cart.totalItems == 0 || tappedId == _selectedLocationId) {
+      _navigateToTenant(tappedId, tappedName);
+    }
+    // Skenario 2: Keranjang berisi item dari lokasi lain. Tampilkan dialog.
+    else {
+      _showConfirmSwitchLocationDialog(tappedId, tappedName);
     }
   }
 
-  void _changeLocation(BuildContext dialogContext, int newLocationId) {
-    Navigator.of(dialogContext).pop(); // Tutup dialog picker
-    if (_cart.totalItems > 0) {
-      setState(() => _cart.clear());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lokasi diubah dan keranjang telah dikosongkan.'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-    setState(() => _selectedLocationId = newLocationId);
-    _saveSelectedLocationId(newLocationId);
+  // --- FUNGSI NAVIGASI KE HALAMAN MENU TENANT ---
+  void _navigateToTenant(int locationId, String locationName) {
+    // Set lokasi saat ini sebagai lokasi terpilih
+    setState(() {
+      _selectedLocationId = locationId;
+      _selectedLocationName = locationName;
+    });
+    _saveSelectedLocationId(locationId);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => TenantPages(
+              vendorId: locationId,
+              vendorName: "Kantin $locationName",
+              cart: _cart,
+              onCartUpdated: () => setState(() {}),
+            ),
+      ),
+    );
   }
 
-  void _showConfirmClearCartDialog(
-    BuildContext dialogContext,
+  // --- DIALOG BARU UNTUK KONFIRMASI PINDAH LOKASI ---
+  void _showConfirmSwitchLocationDialog(
     int newLocationId,
+    String newLocationName,
   ) {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
+          (dialogContext) => AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text("Ganti Lokasi?"),
-            content: const Text(
-              "Keranjang Anda berisi item dari lokasi saat ini. Mengganti lokasi akan mengosongkan keranjang Anda. Lanjutkan?",
+            title: const Text("Ganti Lokasi Kantin?"),
+            content: Text(
+              "Keranjang Anda berisi item dari Kantin $_selectedLocationName. "
+              "Pindah ke Kantin $newLocationName akan mengosongkan keranjang. Lanjutkan?",
             ),
             actions: [
               TextButton(
                 child: const Text("Batal"),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
               ),
               TextButton(
                 child: const Text(
-                  "Lanjutkan",
-                  style: TextStyle(color: Colors.red),
+                  "Ya, Lanjutkan",
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 onPressed: () {
-                  Navigator.of(context).pop(); // Tutup dialog konfirmasi
-                  _changeLocation(dialogContext, newLocationId);
+                  Navigator.of(dialogContext).pop(); // Tutup dialog
+
+                  // Kosongkan keranjang
+                  setState(() => _cart.clear());
+
+                  // Tampilkan notifikasi
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Keranjang dikosongkan & lokasi diubah.'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+
+                  // Lanjutkan navigasi ke kantin baru
+                  _navigateToTenant(newLocationId, newLocationName);
                 },
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _showLocationPicker(BuildContext ctx) {
-    if (_locations.isEmpty) return;
-
-    showDialog(
-      context: ctx,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text('Pilih Lokasi Anda', textAlign: TextAlign.center),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  _locations.map((loc) {
-                    return RadioListTile<int>(
-                      title: Text(
-                        loc.locationName,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      value: loc.id,
-                      groupValue: _selectedLocationId,
-                      onChanged: (value) {
-                        if (value != null) {
-                          _handleLocationChange(dialogContext, value);
-                        }
-                      },
-                      activeColor: primaryColor,
-                    );
-                  }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showLocationSelectionRequiredDialog(String requiredLocation) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: const Text("Akses Ditolak"),
-            content: Text(
-              "Untuk mengakses kantin ini, silakan ubah lokasi Anda menjadi '$requiredLocation' terlebih dahulu di bagian atas.",
-            ),
-            actions: [
-              TextButton(
-                child: const Text("Mengerti"),
-                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -228,93 +202,49 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  // --- UI WIDGETS ---
   Widget _buildHomePage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          _buildHeader(),
-          const SizedBox(height: 24),
-          const Text.rich(
-            TextSpan(
-              text: 'Halo, ',
-              style: TextStyle(fontSize: 26, color: textColor),
-              children: [
-                TextSpan(
-                  text: 'Selamat Datang!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Silakan Pilih Kantin Yang Dituju',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 10),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Image.asset(
-          'assets/cart.png',
-          width: 50,
-          height: 50,
-          errorBuilder:
-              (context, error, stackTrace) =>
-                  const Icon(Icons.shopping_cart, size: 50),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+        // Header kini lebih simpel
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'CART KANTIN',
-                style: TextStyle(
-                  fontSize: 18, // Ukuran disesuaikan
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1,
-                ),
-              ),
-              InkWell(
-                onTap: () => _showLocationPicker(context),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _selectedLocationName,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 22, // Ukuran lebih besar
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Selamat Datang!',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
-                    const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                  ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Silakan pilih kantin yang dituju',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.logout_outlined,
+                  color: textColor,
+                  size: 28,
                 ),
+                tooltip: 'Logout',
+                onPressed: () => _logout(context),
               ),
             ],
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.logout_outlined, color: textColor),
-          onPressed: () => _logout(context),
-        ),
+        // Langsung ke daftar kantin
+        Expanded(child: _buildBody()),
       ],
     );
   }
@@ -333,10 +263,9 @@ class _MainPageState extends State<MainPage> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: _locations.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final loc = _locations[index];
         return _buildKantinCard(loc.id, loc.locationName);
@@ -344,102 +273,86 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  // --- KARTU KANTIN DENGAN LOGIKA BARU ---
   Widget _buildKantinCard(int id, String locationName) {
-    return GestureDetector(
-      onTap: () {
-        if (_selectedLocationName == locationName) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => TenantPages(
-                    vendorId: id,
-                    vendorName: "Kantin $locationName",
-                    cart: _cart,
-                    onCartUpdated: () => setState(() {}),
-                  ),
-            ),
-          );
-        } else {
-          _showLocationSelectionRequiredDialog(locationName);
-        }
-      },
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.08),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-              child: Image.asset(
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.08),
+      child: InkWell(
+        onTap: () => _handleKantinTap(id, locationName),
+        child: SizedBox(
+          height: 120, // Ukuran kartu diperbesar
+          child: Row(
+            children: [
+              Image.asset(
                 'assets/kantin.png',
-                height: 100,
-                width: 100,
+                height: 120,
+                width: 120, // Gambar juga diperbesar
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
-                    height: 100,
-                    width: 100,
+                    height: 120,
+                    width: 120,
                     color: Colors.grey[200],
                     child: const Icon(
                       Icons.storefront,
                       color: Colors.grey,
-                      size: 50,
+                      size: 60,
                     ),
                   );
                 },
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Kantin',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      locationName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Kantin',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Lihat Menu',
-                        style: TextStyle(
-                          color: primaryColor,
+                      const SizedBox(height: 4),
+                      Text(
+                        locationName,
+                        style: const TextStyle(
+                          fontSize: 20, // Font diperbesar
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          color: textColor,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Lihat Menu',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+              const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.chevron_right, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       ),
     );

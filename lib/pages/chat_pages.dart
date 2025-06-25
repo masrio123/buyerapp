@@ -1,11 +1,9 @@
-// File: lib/pages/chat_page.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/message.dart';
-import '../services/chat_service.dart';
+import '../models/message.dart'; // Pastikan path ini benar
+import '../services/chat_service.dart'; // Pastikan path ini benar
 
 class ChatPage extends StatefulWidget {
   final int orderId;
@@ -24,55 +22,98 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  // --- State Variables ---
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   List<Message> _messages = [];
   Timer? _pollingTimer;
   bool _isLoading = true;
+
+  // Variabel untuk identitas pengguna saat ini
   int? _myId;
+  String? _myRole;
 
   @override
   void initState() {
     super.initState();
-    _initializeChat();
+    _initializePage();
   }
 
-  Future<void> _initializeChat() async {
-    await _loadMyId();
-    await _fetchMessages();
-    _startPolling();
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  // --- PERBAIKAN DI FUNGSI INI ---
-  Future<void> _loadMyId() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Memeriksa kunci 'customer_id' (untuk buyer) dan 'porter_id' (untuk porter)
-    // yang disimpan saat login.
-    final idString =
-        prefs.getString('customer_id') ?? prefs.getString('porter_id');
+  // --- Core Logic Methods ---
 
-    if (idString != null) {
-      if (mounted) {
-        setState(() {
-          _myId = int.tryParse(idString);
-        });
+  Future<void> _initializePage() async {
+    await _loadMyIdentity();
+    if (mounted && _myId != null) {
+      await _fetchMessages();
+      _startPolling();
+    }
+  }
+
+  Future<void> _loadMyIdentity() async {
+    print("_[ChatPage]_: Memuat identitas dari SharedPreferences...");
+    setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ===================================================================
+      // === INI PERUBAHANNYA: Disesuaikan agar cocok dengan AuthService ===
+      final role = prefs.getString('role');
+      // ===================================================================
+
+      String? idString;
+
+      // Logika ini tetap sama, karena AuthService Anda menyimpan 'porter_id'
+      if (role == 'porter') {
+        idString = prefs.getString('porter_id');
+      } else if (role == 'customer') {
+        idString = prefs.getString('customer_id');
       }
-    } else {
-      // Jika ID tidak ditemukan sama sekali, beri tahu di console.
-      print("PERINGATAN: ID user/porter tidak ditemukan di SharedPreferences.");
+
+      if (idString != null && role != null) {
+        if (mounted) {
+          setState(() {
+            _myId = int.tryParse(idString!);
+            _myRole = role;
+          });
+          print(
+            "✅ _[ChatPage]_: Identitas Sukses -> Role: $_myRole, ID: $_myId",
+          );
+        }
+      } else {
+        print(
+          "❌ _[ChatPage]_: GAGAL memuat identitas. Kunci 'role' atau 'porter_id' tidak ditemukan.",
+        );
+      }
+    } catch (e) {
+      print("❌ _[ChatPage]_: Terjadi error saat memuat identitas: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   void _startPolling() {
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) _fetchMessages(isPolling: true);
+      if (mounted) {
+        _fetchMessages(isPolling: true);
+      }
     });
   }
 
   Future<void> _fetchMessages({bool isPolling = false}) async {
-    if (!isPolling && mounted) setState(() => _isLoading = true);
-
+    if (!isPolling && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final newMessages = await ChatService.getMessages(widget.orderId);
       if (mounted && newMessages.length != _messages.length) {
@@ -85,20 +126,20 @@ class _ChatPageState extends State<ChatPage> {
       if (!isPolling && mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat pesan: $e')));
       }
     } finally {
-      if (mounted && _isLoading) setState(() => _isLoading = false);
+      if (!isPolling && mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
-
     final tempMessage = text;
     _messageController.clear();
-
     try {
       await ChatService.sendMessage(widget.orderId, tempMessage);
       await _fetchMessages(isPolling: true);
@@ -124,82 +165,78 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
+  // --- UI Builder Methods ---
+
+  // (Seluruh UI di bawah ini tidak ada perubahan, sama seperti sebelumnya)
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFFFF7622);
-
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF8F9FA,
-      ), // Latar belakang sedikit abu-abu
-      appBar: AppBar(
-        elevation: 1,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundImage:
-                  widget.recipientAvatarUrl != null
-                      ? AssetImage(widget.recipientAvatarUrl!) as ImageProvider
-                      : const AssetImage(
-                        'assets/avatar.png',
-                      ), // Fallback avatar
-            ),
-            const SizedBox(width: 12),
-            Text(
-              widget.recipientName,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Sen',
-              ),
-            ),
-          ],
-        ),
-      ),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: _buildAppBar(),
       body: Column(
+        children: [Expanded(child: _buildMessagesList()), _buildMessageInput()],
+      ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      elevation: 1,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      title: Row(
         children: [
-          Expanded(
-            child:
-                _isLoading
-                    ? const Center(
-                      child: CircularProgressIndicator(color: primaryColor),
-                    )
-                    : _messages.isEmpty
-                    ? const Center(child: Text('Mulai percakapan Anda!'))
-                    : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16.0),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final senderId =
-                            message.porter?.id ?? message.customer?.id;
-                        // Logika penentuan bubble chat kiri atau kanan
-                        final bool isMe = senderId == _myId;
-                        return _ChatBubble(message: message, isMe: isMe);
-                      },
-                    ),
+          CircleAvatar(
+            radius: 20,
+            backgroundImage:
+                widget.recipientAvatarUrl != null
+                    ? AssetImage(widget.recipientAvatarUrl!) as ImageProvider
+                    : const AssetImage('assets/avatar.png'),
           ),
-          _buildMessageInput(),
+          const SizedBox(width: 12),
+          Text(
+            widget.recipientName,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Sen',
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMessageInput() {
-    const primaryColor = Color(0xFFFF7622);
+  Widget _buildMessagesList() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF7622)),
+      );
+    }
+    if (_messages.isEmpty) {
+      return const Center(
+        child: Text(
+          'Belum ada pesan.\nMulai percakapan Anda!',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16.0),
+      itemCount: _messages.length,
+      itemBuilder: (context, index) {
+        final message = _messages[index];
+        final senderId = message.porter?.id ?? message.customer?.id;
+        final bool isMe = senderId != null && senderId == _myId;
+        return _ChatBubble(message: message, isMe: isMe);
+      },
+    );
+  }
 
+  Widget _buildMessageInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       decoration: BoxDecoration(
@@ -236,7 +273,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(width: 8),
             Material(
-              color: primaryColor,
+              color: const Color(0xFFFF7622),
               borderRadius: BorderRadius.circular(30),
               child: InkWell(
                 borderRadius: BorderRadius.circular(30),
@@ -263,7 +300,6 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFFF7622);
-
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
